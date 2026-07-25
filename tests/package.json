@@ -1,0 +1,17 @@
+{
+  "name": "fitai-tests",
+  "version": "1.0.0",
+  "description": "FitAI X — Playwright E2E browser tests + API integration tests",
+  "scripts": {
+    "install:browsers": "playwright install chromium",
+    "test": "playwright test",
+    "test:e2e": "playwright test --project=e2e",
+    "test:api": "playwright test --project=api",
+    "test:headed": "playwright test --project=e2e --headed",
+    "test:report": "playwright show-report playwright-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "typescript": "^5.9.3"
+  }
+}

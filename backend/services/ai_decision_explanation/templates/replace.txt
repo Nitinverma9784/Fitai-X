@@ -1,0 +1,1 @@
+Exercise {{old_exercise}} was replaced with {{new_exercise}} to target {{muscle_group}} more effectively.
