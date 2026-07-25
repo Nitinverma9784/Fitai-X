@@ -46,9 +46,13 @@ export async function initDb(): Promise<void> {
         injuries TEXT[],
         diet_pref VARCHAR(255),
         time_commitment VARCHAR(50),
+        password_hash VARCHAR(255),
         onboarding_completed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+      ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS workouts (
         id SERIAL PRIMARY KEY,

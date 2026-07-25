@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Linking,
   Image,
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
@@ -22,6 +21,9 @@ const logoImg = require('@/assets/images/logo.png');
 
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+
+WebBrowser.maybeCompleteAuthSession();
 
 function resolveAuthApiUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
@@ -107,7 +109,9 @@ export default function AuthScreen() {
     setErrorMsg(null);
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/google/url`);
+      const redirectUrl = Linking.createURL('/auth/success');
+      const returnUrl = encodeURIComponent(redirectUrl);
+      const res = await fetch(`${BACKEND_URL}/api/auth/google/url?returnUrl=${returnUrl}`);
       const json = await res.json();
       const googleUrl: string = json.url;
       if (!googleUrl) {
@@ -118,7 +122,28 @@ export default function AuthScreen() {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.location.href = googleUrl;
       } else {
-        await WebBrowser.openBrowserAsync(googleUrl);
+        const result = await WebBrowser.openAuthSessionAsync(googleUrl, redirectUrl);
+        if (result.type === 'success' && result.url) {
+          const { queryParams } = Linking.parse(result.url);
+          if (queryParams) {
+            const token = queryParams.token as string;
+            const name = decodeURIComponent((queryParams.name as string) || 'Athlete');
+            const email = decodeURIComponent((queryParams.email as string) || '');
+            const userId = parseInt(queryParams.userId as string, 10) || 1;
+            const error = queryParams.error as string;
+            const isOnboarded = queryParams.isOnboarded === 'true';
+
+            if (error === 'email_account_exists') {
+              setErrorMsg("This email is linked to a password account.");
+            } else if (token) {
+              handleAuthSuccess({
+                token,
+                user: { id: userId, name, email },
+                isOnboarded,
+              });
+            }
+          }
+        }
         setLoading(false);
       }
     } catch {
