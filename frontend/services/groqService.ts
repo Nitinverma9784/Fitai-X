@@ -28,14 +28,19 @@ function resolveBackendUrl(): string {
 
 const API_BASE_URL = resolveBackendUrl();
 
-// Build headers with the current user's id
+// Build headers with Authorization Bearer token and x-user-id fallback
 function headers(extra?: Record<string, string>): Record<string, string> {
   const userId = sessionService.getUserId();
-  return {
+  const token = sessionService.getToken();
+  const baseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-user-id': String(userId),
     ...extra,
   };
+  if (token) {
+    baseHeaders['Authorization'] = `Bearer ${token}`;
+  }
+  return baseHeaders;
 }
 
 export interface UserProfile {
@@ -94,6 +99,34 @@ export interface RecoveryInsights {
     cycles: number;
     targetHrvBoost: string;
   };
+}
+
+export interface NutritionPlan {
+  targets: {
+    proteinG: number;
+    carbsG: number;
+    fatsG: number;
+    calories: number;
+    proteinConsumedG: number;
+    carbsConsumedG: number;
+    fatsConsumedG: number;
+  };
+  dietPref: string;
+  meals: {
+    tag: string;
+    name: string;
+    cals: string;
+    desc: string;
+  }[];
+}
+
+export interface GroceryList {
+  totalEstCost: string;
+  items: {
+    name: string;
+    qty: string;
+    estCost: string;
+  }[];
 }
 
 // ── Normalise a raw workout row from the DB ───────────────────────────────────
@@ -245,6 +278,27 @@ export const groqService = {
   async getLatestRecovery(): Promise<any | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/recovery/latest`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // ── Nutrition ───────────────────────────────────────────────────────────────
+  async getNutritionPlan(): Promise<NutritionPlan | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/nutrition/plan`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getGroceryList(): Promise<GroceryList | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/nutrition/grocery`, { headers: headers() });
       const json = await res.json();
       return json.success ? json.data : null;
     } catch {

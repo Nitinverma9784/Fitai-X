@@ -56,14 +56,18 @@ export const sessionService = {
    * so all synchronous callers (get, isLoggedIn, getUserId) work immediately.
    */
   async init(): Promise<void> {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS === 'web') {
+      _memSession = webGet();
+    } else {
       try {
         const raw = await AsyncStorage.getItem(SESSION_KEY);
         if (raw) {
           _memSession = JSON.parse(raw) as FitAISession;
+        } else {
+          _memSession = null;
         }
       } catch {
-        // Silently continue — in-memory fallback remains null
+        _memSession = null;
       }
     }
   },
@@ -72,15 +76,15 @@ export const sessionService = {
     _memSession = session;
     if (Platform.OS === 'web') {
       webSave(session);
-    } else {
-      // Async fire-and-forget — sync callers still get instant _memSession
-      AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
     }
+    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
   },
 
   get(): FitAISession | null {
     if (Platform.OS === 'web') {
-      return webGet();
+      const s = webGet();
+      if (s) _memSession = s;
+      return s;
     }
     return _memSession;
   },
@@ -89,18 +93,21 @@ export const sessionService = {
     _memSession = null;
     if (Platform.OS === 'web') {
       webClear();
-    } else {
-      AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
     }
+    AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
   },
 
   isLoggedIn(): boolean {
     const s = sessionService.get();
-    return !!s?.token;
+    return Boolean(s && s.token && s.token.trim() !== '');
   },
 
   getUserId(): number {
-    return sessionService.get()?.userId ?? 1;
+    return sessionService.get()?.userId ?? 0;
+  },
+
+  getToken(): string {
+    return sessionService.get()?.token ?? '';
   },
 
   markOnboarded(): void {

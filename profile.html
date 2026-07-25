@@ -1,0 +1,139 @@
+<div class="export-wrapper" style="width: 375px; min-height: 812px; position: relative; font-family: 'Space Grotesk', sans-serif; background-color: #0a0a0a; color: #ffffff;">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --background: #0a0a0a;
+      --card: #161616;
+      --card2: #101010;
+      --border: #222222;
+      --primary: #f5c400;
+      --lime: #a3e635;
+      --red: #ef4444;
+      --text-muted: #b0aa9a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: var(--background); color: #fff; font-family: 'Space Grotesk', sans-serif; }
+    .header { background: var(--card); border-bottom: 1px solid var(--border); padding: 24px 20px 20px; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .icon-btn { width: 32px; height: 32px; border-radius: 8px; background: var(--card2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; }
+    .user-profile { display: flex; align-items: center; gap: 16px; }
+    .avatar { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; background: var(--primary); color: #0a0a0a; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; }
+    .user-name { font-size: 20px; font-weight: 700; color: #fff; }
+    .user-email { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .badges { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-pro { background: var(--primary); color: #0a0a0a; }
+    .badge-verified { background: var(--lime); color: #0a0a0a; display: flex; align-items: center; gap: 4px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #0a0a0a; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
+    .stat-val { font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 0 20px 16px; }
+    .card-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+    .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .row-left { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .row-val { font-size: 13px; font-weight: 700; color: #fff; }
+
+    .achieve-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .achieve-item:last-child { border-bottom: none; }
+    .achieve-icon { width: 36px; height: 36px; border-radius: 8px; background: rgba(245, 196, 0, 0.1); border: 1px solid rgba(245, 196, 0, 0.2); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .achieve-info { flex: 1; }
+    .achieve-name { font-size: 13px; font-weight: 700; color: #fff; }
+    .achieve-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .status-pill { font-size: 10px; font-weight: 700; color: var(--lime); background: rgba(163, 230, 53, 0.12); padding: 3px 8px; border-radius: 999px; }
+
+    .logout-btn { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 14px; margin: 0 20px 24px; text-align: center; color: var(--red); font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  </style>
+
+  <div class="header">
+    <div class="top-bar">
+      <button class="icon-btn">‹</button>
+      <span style="font-size: 14px; font-weight: 700;">Profile</span>
+      <button class="icon-btn">⚙</button>
+    </div>
+    <div class="user-profile">
+      <div class="avatar">AM</div>
+      <div>
+        <div class="user-name">Alex Morgan</div>
+        <div class="user-email">alex@fitai.pro</div>
+        <div class="badges">
+          <span class="badge badge-pro">PRO Member</span>
+          <span class="badge badge-verified"><span class="dot"></span>Verified</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div style="color: var(--primary);">🏋️</div>
+      <div class="stat-val">127</div>
+      <div class="stat-label">Workouts</div>
+    </div>
+    <div class="stat-card">
+      <div style="color: var(--primary);">🔥</div>
+      <div class="stat-val">12d</div>
+      <div class="stat-label">Streak</div>
+    </div>
+    <div class="stat-card">
+      <div style="color: var(--primary);">👥</div>
+      <div class="stat-val">24</div>
+      <div class="stat-label">Friends</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Fitness Profile</div>
+    <div class="row">
+      <div class="row-left">🎯 Goal</div>
+      <div class="row-val">Build Muscle</div>
+    </div>
+    <div class="row">
+      <div class="row-left">📊 Level</div>
+      <div class="row-val">Intermediate</div>
+    </div>
+    <div class="row">
+      <div class="row-left">📅 Experience</div>
+      <div class="row-val">4 years</div>
+    </div>
+    <div class="row">
+      <div class="row-left">🏋️ Equipment</div>
+      <div class="row-val">Commercial Gym</div>
+    </div>
+    <div class="row">
+      <div class="row-left">⚖ Metrics</div>
+      <div class="row-val">75 kg • 175 cm</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Achievements & Milestones</div>
+    <div class="achieve-item">
+      <div class="achieve-icon">🏆</div>
+      <div class="achieve-info">
+        <div class="achieve-name">100 Workouts Club</div>
+        <div class="achieve-sub">Completed 100 sessions</div>
+      </div>
+      <div class="status-pill">Unlocked</div>
+    </div>
+    <div class="achieve-item">
+      <div class="achieve-icon">🔥</div>
+      <div class="achieve-info">
+        <div class="achieve-name">10-Day Streak Master</div>
+        <div class="achieve-sub">Consistency record hit</div>
+      </div>
+      <div class="status-pill">Unlocked</div>
+    </div>
+  </div>
+
+  <div class="logout-btn">
+    Log Out Account
+  </div>
+</div>

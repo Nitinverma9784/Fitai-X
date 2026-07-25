@@ -11,14 +11,31 @@ import {
   Platform,
   ActivityIndicator,
   Linking,
+  Image,
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { FitGuruBot } from '@/components/FitGuruBot';
 import { GoogleIcon, AlertCircleIcon } from '@/components/icons/SvgIcons';
 import { sessionService } from '@/services/sessionService';
 
-const BACKEND_URL = 'http://localhost:5000';
+const logoImg = require('@/assets/images/logo.png');
+
+import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
+
+function resolveAuthApiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
+  if (Platform.OS === 'web') return 'http://localhost:5000';
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const devMachineIp = hostUri.split(':')[0];
+    return `http://${devMachineIp}:5000`;
+  }
+  return Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+}
+
+const BACKEND_URL = resolveAuthApiUrl();
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -83,7 +100,7 @@ export default function AuthScreen() {
   /**
    * Backend-driven Google OAuth:
    * 1. Ask backend for the Google auth URL (with backend redirect_uri)
-   * 2. Navigate the browser to that URL
+   * 2. Navigate browser or WebBrowser to that URL
    * 3. Google → backend callback → /auth/success?token=...&isOnboarded=...
    */
   const handleGoogleSignIn = async () => {
@@ -101,7 +118,7 @@ export default function AuthScreen() {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.location.href = googleUrl;
       } else {
-        await Linking.openURL(googleUrl);
+        await WebBrowser.openBrowserAsync(googleUrl);
         setLoading(false);
       }
     } catch {
@@ -119,8 +136,7 @@ export default function AuthScreen() {
 
         {/* Brand Header */}
         <View style={styles.brandBox}>
-          <FitGuruBot size={64} />
-          <Text style={styles.brandTitle}>FitAI Pro</Text>
+          <Image source={logoImg} style={{ width: 180, height: 75, resizeMode: 'contain' }} />
           <Text style={styles.brandSubtitle}>INTELLIGENT HYPERTROPHY & BIO-RECOVERY</Text>
         </View>
 

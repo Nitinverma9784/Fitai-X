@@ -8,6 +8,7 @@ import workoutRoutes from './routes/workoutRoutes';
 import recoveryRoutes from './routes/recoveryRoutes';
 import coachRoutes from './routes/coachRoutes';
 import userRoutes from './routes/userRoutes';
+import nutritionRoutes from './routes/nutritionRoutes';
 
 const app = express();
 app.use(cors());
@@ -34,6 +35,7 @@ app.use('/api/workout', workoutRoutes);
 app.use('/api/recovery', recoveryRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/nutrition', nutritionRoutes);
 
 app.listen(config.port, () => {
   console.log(`⚡ FitAI Pro Node.js TypeScript Backend listening on port ${config.port}`);

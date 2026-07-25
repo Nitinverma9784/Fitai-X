@@ -13,7 +13,6 @@ import {
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { groqService, WorkoutPlan } from '@/services/groqService';
-import { FitGuruBot } from '@/components/FitGuruBot';
 import {
   SparklesIcon, TimeIcon, FlameIcon, DumbbellIcon,
   CheckIcon, ChevronRightIcon, ArrowRightIcon, BarbellIcon,
@@ -86,9 +85,7 @@ export default function WorkoutScreen() {
         {/* Top Header */}
         <View style={styles.topbar}>
           <View style={styles.topbarLeft}>
-            <FitGuruBot size={36} />
-            <View style={{ marginLeft: 10 }}>
-              <Text style={styles.kicker}>FITGURU AI ENGINE</Text>
+            <View>
               <Text style={styles.title}>AI Workout Planner</Text>
             </View>
           </View>
@@ -112,7 +109,7 @@ export default function WorkoutScreen() {
               <TouchableOpacity
                 key={group}
                 style={[styles.chip, active && styles.chipActive]}
-                onPress={() => handleRegenerate(group)}>
+                onPress={() => setSelectedMuscle(group)}>
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{group}</Text>
               </TouchableOpacity>
             );
@@ -123,7 +120,7 @@ export default function WorkoutScreen() {
         <View style={styles.hero}>
           <View style={styles.heroPill}>
             <SparklesIcon size={12} color={Colors.gold} />
-            <Text style={styles.heroPillText}>FITGURU RECOVERY MATCH</Text>
+            <Text style={styles.heroPillText}>OPTIMAL RECOVERY MATCH</Text>
           </View>
 
           <Text style={styles.heroTitle}>{workout.title}</Text>
@@ -164,7 +161,7 @@ export default function WorkoutScreen() {
             activeOpacity={0.7}>
             <View style={styles.aiTitleRow}>
               <SparklesIcon size={16} color={Colors.paleGold} />
-              <Text style={styles.aiTitle}>Why FitGuru recommended this?</Text>
+              <Text style={styles.aiTitle}>Why AI recommended this?</Text>
             </View>
             <Text style={styles.aiToggleText}>{showWhy ? 'Hide' : 'Show'}</Text>
           </TouchableOpacity>

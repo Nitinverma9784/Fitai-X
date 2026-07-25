@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radii } from '@/constants/theme';
 import { groqService } from '@/services/groqService';
-import { FitGuruBot } from './FitGuruBot';
+import { SparklesIcon } from '@/components/icons/SvgIcons';
 
 interface AIChatModalProps {
   visible: boolean;
@@ -79,9 +79,9 @@ export function AIChatModal({ visible, onClose }: AIChatModalProps) {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <FitGuruBot size={38} />
-            <View style={{ marginLeft: 6 }}>
-              <Text style={styles.title}>FitGuru Coach</Text>
+            <SparklesIcon size={24} color={Colors.gold} />
+            <View style={{ marginLeft: 8 }}>
+              <Text style={styles.title}>AI Fitness Coach</Text>
               <Text style={styles.subtitle}>AI Intelligence Engine • Active</Text>
             </View>
           </View>

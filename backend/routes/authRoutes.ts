@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { generateToken } from '../core/security';
+import { generateToken, hashPassword, verifyPassword } from '../core/security';
 import { db } from '../core/database';
 
 const router = Router();
@@ -8,7 +8,12 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8082';
-const REDIRECT_URI = `${BACKEND_URL}/api/auth/google/callback`;
+
+function getRedirectUri(req: Request): string {
+  const host = req.get('host') || 'localhost:5000';
+  const protocol = req.protocol || 'http';
+  return `${protocol}://${host}/api/auth/google/callback`;
+}
 
 // Helper: build response with isOnboarded flag
 function authResponse(user: any, token: string) {
@@ -22,12 +27,13 @@ function authResponse(user: any, token: string) {
 
 /**
  * GET /api/auth/google/url
- * Returns the Google OAuth authorization URL for the frontend to redirect to
+ * Returns the Google OAuth authorization URL for frontend to redirect to
  */
 router.get('/google/url', (req: Request, res: Response) => {
+  const redirectUri = getRedirectUri(req);
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
@@ -41,17 +47,16 @@ router.get('/google/url', (req: Request, res: Response) => {
 /**
  * GET /api/auth/google/callback
  * Google redirects here after user authenticates.
- * Exchange code → get user info → create/login user → redirect frontend with token.
  */
 router.get('/google/callback', async (req: Request, res: Response) => {
   const { code, error } = req.query;
+  const redirectUri = getRedirectUri(req);
 
   if (error || !code) {
     return res.redirect(`${FRONTEND_URL}/auth?error=google_cancelled`);
   }
 
   try {
-    // Exchange authorization code for access token
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -59,38 +64,34 @@ router.get('/google/callback', async (req: Request, res: Response) => {
         code: code as string,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }).toString(),
     });
 
-    const tokenData = await tokenRes.json() as any;
+    const tokenData = (await tokenRes.json()) as any;
     if (!tokenData.access_token) {
       return res.redirect(`${FRONTEND_URL}/auth?error=token_exchange_failed`);
     }
 
-    // Fetch user profile from Google
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-    const userInfo = await userInfoRes.json() as any;
+    const userInfo = (await userInfoRes.json()) as any;
 
     const email: string = userInfo.email || 'google.athlete@fitai.pro';
     const name: string = userInfo.name || userInfo.given_name || 'Google Athlete';
-    const avatar: string = (name.slice(0, 2) || 'GA').toUpperCase();
+    const avatar: string = userInfo.picture || (name.slice(0, 2) || 'GA').toUpperCase();
 
-    // Check if user exists with email auth — warn them
     const existingUser = await db.getUserByEmail(email);
     if (existingUser && existingUser.auth_provider === 'email') {
       return res.redirect(`${FRONTEND_URL}/auth?error=email_account_exists&email=${encodeURIComponent(email)}`);
     }
 
-    // Create or find the user
     const user = await db.createUser({ name, email, provider: 'google', avatar });
     const token = generateToken({ userId: user.id, email: user.email });
     const isOnboarded = user.onboarding_completed === true || user.onboarding_completed === 't';
 
-    // Redirect back to frontend with the session token + onboarding status + userId
     res.redirect(
       `${FRONTEND_URL}/auth/success?token=${token}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&isOnboarded=${isOnboarded}&userId=${user.id}`
     );
@@ -105,18 +106,34 @@ router.get('/google/callback', async (req: Request, res: Response) => {
  */
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { name = 'Athlete', email, password } = req.body;
-    const existingUser = await db.getUserByEmail(email);
+    const { name = 'Athlete', email, password = '' } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email address is required.' });
+    }
 
-    if (existingUser && existingUser.auth_provider === 'google') {
+    const existingUser = await db.getUserByEmail(email);
+    if (existingUser) {
+      if (existingUser.auth_provider === 'google') {
+        return res.status(400).json({
+          success: false,
+          error: "This email is registered with Google Sign-In. Please tap 'Continue with Google'.",
+          useGoogle: true,
+        });
+      }
       return res.status(400).json({
         success: false,
-        error: "This email is registered with Google Sign-In. Please tap 'Continue with Google' to sign in.",
-        useGoogle: true,
+        error: 'An account with this email already exists. Please log in.',
       });
     }
 
-    const user = await db.createUser({ name, email, provider: 'email', avatar: name.slice(0, 2).toUpperCase() });
+    const passwordHash = password ? hashPassword(password) : undefined;
+    const user = await db.createUser({
+      name,
+      email,
+      provider: 'email',
+      avatar: name.slice(0, 2).toUpperCase(),
+      passwordHash,
+    });
     const token = generateToken({ userId: user.id, email: user.email });
     res.json(authResponse(user, token));
   } catch (err: any) {
@@ -129,7 +146,11 @@ router.post('/signup', async (req: Request, res: Response) => {
  */
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email, password = '' } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email address is required.' });
+    }
+
     const existingUser = await db.getUserByEmail(email);
 
     if (existingUser && existingUser.auth_provider === 'google') {
@@ -140,9 +161,22 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
+    if (existingUser && existingUser.password_hash && password) {
+      const isValid = verifyPassword(password, existingUser.password_hash);
+      if (!isValid) {
+        return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      }
+    }
+
     let user = existingUser;
     if (!user) {
-      user = await db.createUser({ name: 'Athlete', email: email || 'athlete@fitai.pro', provider: 'email' });
+      const passwordHash = password ? hashPassword(password) : undefined;
+      user = await db.createUser({
+        name: 'Athlete',
+        email: email || 'athlete@fitai.pro',
+        provider: 'email',
+        passwordHash,
+      });
     }
     const token = generateToken({ userId: user.id, email: user.email });
     res.json(authResponse(user, token));

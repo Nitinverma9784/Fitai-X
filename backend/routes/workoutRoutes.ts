@@ -1,27 +1,24 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from '../core/database';
 import { generateAdaptiveWorkout } from '../services/adaptive_planning_engine/generator';
 import { calculateProgressiveOverload } from '../services/progressive_overload_engine/reps';
+import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
 
 const router = Router();
 
-function getUserId(req: Request): number {
-  const id = parseInt(req.headers['x-user-id'] as string, 10);
-  return isNaN(id) ? 1 : id;
-}
-
-router.get('/latest', async (req: Request, res: Response) => {
+router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const workout = await db.getLatestWorkout(getUserId(req));
+    const userId = req.user?.userId || 1;
+    const workout = await db.getLatestWorkout(userId);
     res.json({ success: true, data: workout });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.get('/history', async (req: Request, res: Response) => {
+router.get('/history', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.user?.userId || 1;
     const history = await db.getWorkoutHistory(userId);
     res.json({ success: true, data: history });
   } catch (err: any) {
@@ -29,23 +26,32 @@ router.get('/history', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/generate', async (req: Request, res: Response) => {
+router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { targetGroup = 'Chest & Triceps', duration = 45, fitnessLevel = 'Intermediate', equipment = 'Gym Equipment' } = req.body;
+    const userId = req.user?.userId || 1;
+    const userProfile = await db.getUser(userId);
+
+    const {
+      targetGroup = userProfile?.goal || 'Chest & Triceps',
+      duration = parseInt(userProfile?.time_commitment, 10) || 45,
+      fitnessLevel = 'Intermediate',
+      equipment = userProfile?.equipment || 'Gym Equipment',
+    } = req.body;
+
     const plan = await generateAdaptiveWorkout({
       targetGroup,
-      durationMinutes: duration,
+      durationMinutes: typeof duration === 'number' ? duration : 45,
       fitnessLevel,
       equipment,
     });
-    const saved = await db.saveWorkout(getUserId(req), plan);
+    const saved = await db.saveWorkout(userId, plan);
     res.json({ success: true, data: saved });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/set-complete', async (req: Request, res: Response) => {
+router.post('/set-complete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { exerciseId, completedSets } = req.body;
     const updated = await db.updateExerciseSets(exerciseId, completedSets);
@@ -55,7 +61,7 @@ router.post('/set-complete', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/overload', (req: Request, res: Response) => {
+router.post('/overload', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   try {
     const result = calculateProgressiveOverload(req.body);
     res.json({ success: true, data: result });

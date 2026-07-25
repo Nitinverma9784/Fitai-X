@@ -9,28 +9,28 @@ import {
   StatusBar,
   Switch,
   Platform,
+  Image,
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
-import { FitGuruBot } from '@/components/FitGuruBot';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { groqService, UserProfile } from '@/services/groqService';
 import { sessionService } from '@/services/sessionService';
 import {
-  EditIcon, StarIcon, RadioOnIcon, RadioOffIcon,
-  VolumeIcon, HandIcon, WatchIcon, LogoutIcon,
+  EditIcon, DumbbellIcon, FlameIcon, StarIcon,
+  TargetIcon, BarbellIcon, ScaleIcon,
+  VolumeIcon, HandIcon, WatchIcon, LogoutIcon, SettingsIcon,
+  MoonIcon, CalendarIcon, ZapIcon,
 } from '@/components/icons/SvgIcons';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [selectedModel, setSelectedModel] = useState('llama-3.3-70b-versatile');
   const [voiceGuidance, setVoiceGuidance] = useState(true);
   const [haptics, setHaptics] = useState(true);
   const [syncWearable, setSyncWearable] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
 
-  // Reload profile every time this screen comes into focus
-  // (so edits from edit-profile screen are reflected immediately)
   useFocusEffect(
     useCallback(() => {
       async function loadProfile() {
@@ -46,9 +46,7 @@ export default function ProfileScreen() {
     router.replace('/auth');
   };
 
-  const bmi = user?.weight_kg && user?.height_cm
-    ? (user.weight_kg / ((user.height_cm / 100) ** 2)).toFixed(1)
-    : null;
+  const isAvatarUrl = user?.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -59,136 +57,171 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
-        <View style={styles.topbar}>
-          <Text style={styles.title}>Profile & Settings</Text>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => router.push('/edit-profile')}>
-            <EditIcon size={18} color={Colors.text2} />
-          </TouchableOpacity>
-        </View>
+        {/* 1. Top Header Card matching profile.html */}
+        <View style={styles.headerCard}>
+          <View style={styles.topNavRow}>
+            <TouchableOpacity style={styles.navBtn} activeOpacity={0.7} onPress={() => router.back()}>
+              <Text style={styles.navBtnText}>‹</Text>
+            </TouchableOpacity>
 
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user?.avatar || '??'}</Text>
-            <View style={styles.proBadge} />
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.name} testID="profile-name">{user?.name || '—'}</Text>
-            <Text style={styles.email} testID="profile-email">{user?.email || '—'}</Text>
-            <View style={styles.tierPill}>
-              <StarIcon size={12} color={Colors.gold} />
-              <Text style={styles.tierText}>{user?.tier || 'FITAI ATHLETE'}</Text>
-            </View>
-          </View>
-        </View>
+            <Text style={styles.headerTitle}>Profile</Text>
 
-        {/* FitGuru AI Engine */}
-        <Text style={styles.sectionLabel}>FITGURU AI ENGINE & MODEL SELECTION</Text>
-        <View style={styles.card}>
-          <View style={styles.clusterRow}>
-            <View style={styles.clusterLeft}>
-              <FitGuruBot size={36} />
-              <View style={{ marginLeft: 8 }}>
-                <Text style={styles.clusterTitle}>FitGuru Intelligence Cluster</Text>
-                <Text style={styles.clusterSub}>Multi-Engine Load Balancing Active</Text>
-              </View>
-            </View>
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeText}>ONLINE</Text>
-            </View>
+            <TouchableOpacity style={styles.navBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile')}>
+              <SettingsIcon size={16} color={Colors.text2} />
+            </TouchableOpacity>
           </View>
-          <View style={styles.divider} />
-          <Text style={styles.modelLabel}>Active Intelligence Mode:</Text>
-          {[
-            { id: 'llama-3.3-70b-versatile', name: 'FitGuru Hypertrophy 70B (Recommended)' },
-            { id: 'mixtral-8x7b-32768', name: 'FitGuru Precision 32K Context' },
-            { id: 'gemma2-9b-it', name: 'FitGuru Lightning 9B High Speed' },
-          ].map(m => {
-            const active = selectedModel === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.modelOption, active && styles.modelOptionActive]}
-                onPress={() => setSelectedModel(m.id)}>
-                {active
-                  ? <RadioOnIcon size={18} color={Colors.gold} />
-                  : <RadioOffIcon size={18} color={Colors.text2} />}
-                <Text style={[styles.modelText, active && styles.modelTextActive]}>{m.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
-        {/* Body Metrics */}
-        <Text style={styles.sectionLabel}>BODY METRICS & GOALS</Text>
-        <View style={styles.card}>
-          <View style={styles.metricRow}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal} testID="metric-weight">
-                {user?.weight_kg ?? '--'}<Text style={styles.smallUnit}> kg</Text>
-              </Text>
-              <Text style={styles.metricSub}>Weight</Text>
-            </View>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal} testID="metric-height">
-                {user?.height_cm ?? '--'}<Text style={styles.smallUnit}> cm</Text>
-              </Text>
-              <Text style={styles.metricSub}>Height</Text>
-            </View>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal} testID="metric-age">{user?.age ?? '--'}</Text>
-              <Text style={styles.metricSub}>Age</Text>
-            </View>
-            {bmi && (
-              <View style={styles.metricItem}>
-                <Text style={styles.metricVal}>{bmi}</Text>
-                <Text style={styles.metricSub}>BMI</Text>
+          {/* User Profile Info Row */}
+          <View style={styles.userRow}>
+            {isAvatarUrl ? (
+              <Image
+                source={{ uri: user!.avatar }}
+                style={styles.avatarImg}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarInitials}>
+                  {user?.avatar || (user?.name?.slice(0, 2) || 'AM').toUpperCase()}
+                </Text>
               </View>
             )}
+
+            <View style={styles.userInfo}>
+              <Text style={styles.userName} testID="profile-name">
+                {user?.name || 'Alex Morgan'}
+              </Text>
+              <Text style={styles.userEmail} testID="profile-email">
+                {user?.email || 'alex@fitai.pro'}
+              </Text>
+
+              <View style={styles.badgeRow}>
+                <View style={styles.proBadge}>
+                  <Text style={styles.proBadgeText}>PRO Member</Text>
+                </View>
+                <View style={styles.verifiedBadge}>
+                  <View style={styles.verifiedDot} />
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              </View>
+            </View>
           </View>
-          {user?.goal && (
-            <View style={styles.goalPill}>
-              <Text style={styles.goalPillText}>🎯 {user.goal}</Text>
+        </View>
+
+        {/* 2. 3-Stat Grid Cards matching profile.html */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <DumbbellIcon size={18} color={Colors.gold} />
+            <Text style={styles.statNumber}>127</Text>
+            <Text style={styles.statLabel}>Workouts</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <FlameIcon size={18} color={Colors.amberGold} />
+            <Text style={styles.statNumber}>12d</Text>
+            <Text style={styles.statLabel}>Streak</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <TargetIcon size={18} color={Colors.green} />
+            <Text style={styles.statNumber}>24</Text>
+            <Text style={styles.statLabel}>Friends</Text>
+          </View>
+        </View>
+
+        {/* 3. Fitness Profile Card matching profile.html */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Fitness Profile</Text>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoLeft}>
+              <TargetIcon size={14} color={Colors.text2} />
+              <Text style={styles.infoLabel}>Goal</Text>
             </View>
-          )}
-          {user?.equipment && (
-            <View style={[styles.goalPill, { marginTop: 6 }]}>
-              <Text style={styles.goalPillText}>🏋️ {user.equipment}</Text>
+            <Text style={styles.infoVal}>{user?.goal || 'Build Muscle'}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoLeft}>
+              <StarIcon size={14} color={Colors.text2} />
+              <Text style={styles.infoLabel}>Level</Text>
             </View>
-          )}
-          {user?.diet_pref && (
-            <View style={[styles.goalPill, { marginTop: 6 }]}>
-              <Text style={styles.goalPillText}>🥗 {user.diet_pref}</Text>
+            <Text style={styles.infoVal}>{user?.tier || 'Intermediate'}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoLeft}>
+              <CalendarIcon size={14} color={Colors.text2} />
+              <Text style={styles.infoLabel}>Experience</Text>
             </View>
-          )}
-          {user?.time_commitment && (
-            <View style={[styles.goalPill, { marginTop: 6 }]}>
-              <Text style={styles.goalPillText}>⏱ {user.time_commitment} sessions</Text>
+            <Text style={styles.infoVal}>4 years</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.infoLeft}>
+              <BarbellIcon size={14} color={Colors.text2} />
+              <Text style={styles.infoLabel}>Equipment</Text>
             </View>
-          )}
-          {user?.injuries && user.injuries.length > 0 && !user.injuries.includes('None') && (
-            <View style={[styles.goalPill, { marginTop: 6 }]}>
-              <Text style={styles.goalPillText}>⚠️ Injuries: {user.injuries.join(', ')}</Text>
+            <Text style={styles.infoVal}>{user?.equipment || 'Commercial Gym'}</Text>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.infoLeft}>
+              <ScaleIcon size={14} color={Colors.text2} />
+              <Text style={styles.infoLabel}>Body Metrics</Text>
             </View>
-          )}
+            <Text style={styles.infoVal}>
+              {user?.weight_kg ?? 75} kg • {user?.height_cm ?? 175} cm
+            </Text>
+          </View>
+
           <TouchableOpacity
-            style={styles.editProfileRow}
+            style={styles.editProfileBtn}
             onPress={() => router.push('/edit-profile')}
-            activeOpacity={0.75}>
+            activeOpacity={0.8}>
             <EditIcon size={16} color={Colors.gold} />
             <Text style={styles.editProfileText}>Edit Fitness Profile & Goals</Text>
-            <Text style={styles.editProfileArrow}>›</Text>
+            <Text style={styles.arrowText}>›</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Preferences */}
-        <Text style={styles.sectionLabel}>PREFERENCES & HARDWARE</Text>
+        {/* 4. Achievements & Milestones Card matching profile.html */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Achievements & Milestones</Text>
+
+          <View style={styles.achieveRow}>
+            <View style={styles.achieveIconBox}>
+              <Text style={styles.emojiIcon}>🏆</Text>
+            </View>
+            <View style={styles.achieveInfo}>
+              <Text style={styles.achieveName}>100 Workouts Club</Text>
+              <Text style={styles.achieveSub}>Completed 100 sessions</Text>
+            </View>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>Unlocked</Text>
+            </View>
+          </View>
+
+          <View style={[styles.achieveRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.achieveIconBox}>
+              <Text style={styles.emojiIcon}>🔥</Text>
+            </View>
+            <View style={styles.achieveInfo}>
+              <Text style={styles.achieveName}>10-Day Streak Master</Text>
+              <Text style={styles.achieveSub}>Consistency record hit</Text>
+            </View>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>Unlocked</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 5. Preferences & Hardware List Card matching profile.html */}
         <View style={styles.cardList}>
+          <Text style={styles.cardTitlePadding}>Preferences & Hardware</Text>
+
           <View style={styles.listRow}>
-            <VolumeIcon size={20} color={Colors.text2} />
+            <VolumeIcon size={18} color={Colors.text2} />
             <Text style={styles.rowLabel}>FitGuru Voice Guidance</Text>
             <Switch
               value={voiceGuidance}
@@ -197,8 +230,9 @@ export default function ProfileScreen() {
               thumbColor="#FFF"
             />
           </View>
+
           <View style={styles.listRow}>
-            <HandIcon size={20} color={Colors.text2} />
+            <HandIcon size={18} color={Colors.text2} />
             <Text style={styles.rowLabel}>Haptic Set Reminders</Text>
             <Switch
               value={haptics}
@@ -207,8 +241,9 @@ export default function ProfileScreen() {
               thumbColor="#FFF"
             />
           </View>
+
           <View style={styles.listRow}>
-            <WatchIcon size={20} color={Colors.text2} />
+            <WatchIcon size={18} color={Colors.text2} />
             <Text style={styles.rowLabel}>Sync Apple Health / Garmin</Text>
             <Switch
               value={syncWearable}
@@ -217,9 +252,20 @@ export default function ProfileScreen() {
               thumbColor="#FFF"
             />
           </View>
+
+          <View style={[styles.listRow, { borderBottomWidth: 0 }]}>
+            <MoonIcon size={18} color={Colors.text2} />
+            <Text style={styles.rowLabel}>Dark Mode Theme</Text>
+            <Switch
+              value={darkMode}
+              onValueChange={setDarkMode}
+              trackColor={{ false: Colors.card2, true: Colors.gold }}
+              thumbColor="#FFF"
+            />
+          </View>
         </View>
 
-        {/* Logout */}
+        {/* 6. Log Out Button matching profile.html */}
         <TouchableOpacity
           style={styles.logoutBtn}
           activeOpacity={0.8}
@@ -235,47 +281,320 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  container: { flex: 1 },
   contentContainer: { paddingBottom: 100 },
-  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.text },
-  editBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  profileCard: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: Colors.card, borderRadius: Radii.xxl, padding: 18, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.borderLight },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 20, fontWeight: '800', color: '#0A0A0A' },
-  proBadge: { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.green, borderWidth: 2, borderColor: Colors.card },
-  profileInfo: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '800', color: Colors.text },
-  email: { fontSize: 12, color: Colors.text2, marginTop: 2 },
-  tierPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245, 196, 0, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radii.full, marginTop: 6 },
-  tierText: { fontSize: 9.5, fontWeight: '800', color: Colors.gold },
-  sectionLabel: { fontSize: 11, fontWeight: '800', color: Colors.text2, letterSpacing: 0.8, marginBottom: 8, marginTop: 8 },
-  card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 16, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  clusterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  clusterLeft: { flexDirection: 'row', alignItems: 'center' },
-  clusterTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  clusterSub: { fontSize: 11, color: Colors.text2, marginTop: 2 },
-  activeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radii.full, backgroundColor: 'rgba(163, 230, 53, 0.15)' },
-  activeText: { fontSize: 10, fontWeight: '800', color: Colors.green },
-  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 14 },
-  modelLabel: { fontSize: 12, fontWeight: '700', color: Colors.text2, marginBottom: 10 },
-  modelOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 10, borderRadius: Radii.sm, marginBottom: 4 },
-  modelOptionActive: { backgroundColor: Colors.card2 },
-  modelText: { fontSize: 12.5, color: Colors.text2 },
-  modelTextActive: { color: Colors.text, fontWeight: '700' },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', gap: 8 },
-  metricItem: { alignItems: 'center', minWidth: 60 },
-  metricVal: { fontSize: 18, fontWeight: '800', color: Colors.text },
-  smallUnit: { fontSize: 12, color: Colors.text2 },
-  metricSub: { fontSize: 11, color: Colors.text2, marginTop: 2 },
-  goalPill: { marginTop: 12, backgroundColor: Colors.card2, borderRadius: Radii.md, paddingHorizontal: 12, paddingVertical: 8 },
-  goalPillText: { fontSize: 12, fontWeight: '600', color: Colors.text },
-  editProfileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, backgroundColor: 'rgba(245,196,0,0.07)', borderRadius: Radii.md, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: Colors.borderLight },
-  editProfileText: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gold },
-  editProfileArrow: { fontSize: 20, color: Colors.gold, fontWeight: '300' },
-  cardList: { backgroundColor: Colors.card, borderRadius: Radii.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  listRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  rowLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.text, marginLeft: 12 },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', borderRadius: Radii.md, paddingVertical: 14, marginTop: 8 },
-  logoutText: { fontSize: 14, fontWeight: '700', color: Colors.red },
+
+  // Top Header Card matching profile.html
+  headerCard: {
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  topNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  navBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.card2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBtnText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.text2,
+    marginTop: -2,
+  },
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+
+  // User Profile Row matching profile.html
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatarImg: {
+    width: 64,
+    height: 64,
+    borderRadius: Radii.md,
+  },
+  avatarCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: Radii.md,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0A0A0A',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  userEmail: {
+    fontSize: 12,
+    color: Colors.text2,
+    marginTop: 2,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  proBadge: {
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.full,
+  },
+  proBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0A0A0A',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.green,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.full,
+  },
+  verifiedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#0A0A0A',
+  },
+  verifiedText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0A0A0A',
+  },
+
+  // 3 Stats Grid matching profile.html
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 20,
+    marginVertical: 18,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.text,
+    marginTop: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.text2,
+    marginTop: 2,
+  },
+
+  // Cards
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  cardTitlePadding: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  infoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: Colors.text2,
+  },
+  infoVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    backgroundColor: 'rgba(245, 196, 0, 0.08)',
+    borderRadius: Radii.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  editProfileText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.gold,
+  },
+  arrowText: {
+    fontSize: 18,
+    fontWeight: '300',
+    color: Colors.gold,
+  },
+
+  // Achievements
+  achieveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  achieveIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: Radii.sm,
+    backgroundColor: 'rgba(245, 196, 0, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 196, 0, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiIcon: {
+    fontSize: 16,
+  },
+  achieveInfo: {
+    flex: 1,
+  },
+  achieveName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  achieveSub: {
+    fontSize: 11,
+    color: Colors.text2,
+    marginTop: 2,
+  },
+  statusPill: {
+    backgroundColor: 'rgba(163, 230, 53, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.full,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.green,
+  },
+  statusPillActive: {
+    backgroundColor: 'rgba(245, 196, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.full,
+  },
+  statusPillActiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.gold,
+  },
+
+  // App Settings List Card
+  cardList: {
+    backgroundColor: Colors.card,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+    marginLeft: 12,
+  },
+
+  // Log Out Button matching profile.html
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: Radii.md,
+    paddingVertical: 14,
+    marginHorizontal: 20,
+    marginTop: 4,
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.red,
+  },
 });

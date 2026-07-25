@@ -1,0 +1,1583 @@
+<div class="export-wrapper" style="
+    width: 375px;
+    min-height: 812px;
+    position: relative;
+    font-family: var(--font-family-body);
+    background-color: var(--background);
+  ">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@100;200;300;400;500;600;700;800;900&family=Geist:wght@100;200;300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Nunito:wght@200;300;400;500;600;700;800;900&family=PT+Serif:wght@400;700&family=Roboto+Slab:wght@100;200;300;400;500;600;700;800;900&family=Roboto:wght@100;300;400;500;700;900&family=Shantell+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <html>
+
+  <head>
+    <style>
+      /*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
+      @layer properties;
+      @layer theme, base, components, utilities;
+
+      @layer theme {
+
+        :root,
+        :root {
+          --font-sans:
+            ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+            "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+          --font-mono:
+            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
+          --spacing: 0.25rem;
+          --text-xs: 11px;
+          --text-xs--line-height: calc(1 / 0.75);
+          --text-sm: 13px;
+          --text-sm--line-height: calc(1.25 / 0.875);
+          --text-base: 15px;
+          --text-base--line-height: calc(1.5 / 1);
+          --text-lg: 18px;
+          --text-lg--line-height: calc(1.75 / 1.125);
+          --text-xl: 22px;
+          --text-xl--line-height: calc(1.75 / 1.25);
+          --text-2xl: 26px;
+          --text-2xl--line-height: calc(2 / 1.5);
+          --text-3xl: 32px;
+          --text-3xl--line-height: calc(2.25 / 1.875);
+          --font-weight-normal: 400;
+          --font-weight-medium: 500;
+          --font-weight-semibold: 600;
+          --font-weight-bold: 700;
+          --tracking-wide: 0.025em;
+          --tracking-widest: 0.1em;
+          --leading-tight: 1.25;
+          --leading-relaxed: 1.625;
+          --radius-sm: 6px;
+          --radius-md: 12px;
+          --radius-lg: 16px;
+          --radius-xl: 24px;
+          --default-font-family: var(--font-sans);
+          --default-mono-font-family: var(--font-mono);
+          --color-background: #0a0a0a;
+          --color-foreground: #ffffff;
+          --color-border: #222222;
+          --color-primary: #f5c400;
+          --color-primary-foreground: #0a0a0a;
+          --color-muted-foreground: #b0aa9a;
+          --color-card: #161616;
+          --color-card2: #101010;
+          --color-gold-dark: #ca8a04;
+          --color-lime: #a3e635;
+          --color-amber: #f59e0b;
+          --color-red: #ef4444;
+          --font-body: Space Grotesk;
+          --font-headings: Space Grotesk;
+        }
+      }
+
+      @layer base {
+
+        *,
+        ::after,
+        ::before,
+        ::backdrop,
+        ::file-selector-button {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+          border: 0 solid;
+        }
+
+        html,
+        :root {
+          line-height: 1.5;
+          -webkit-text-size-adjust: 100%;
+          tab-size: 4;
+          font-family: var(--default-font-family,
+              ui-sans-serif,
+              system-ui,
+              sans-serif,
+              "Apple Color Emoji",
+              "Segoe UI Emoji",
+              "Segoe UI Symbol",
+              "Noto Color Emoji"
+            );
+          font-feature-settings: var(--default-font-feature-settings, normal);
+          font-variation-settings: var(--default-font-variation-settings,
+              normal);
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        hr {
+          height: 0;
+          color: inherit;
+          border-top-width: 1px;
+        }
+
+        abbr:where([title]) {
+          -webkit-text-decoration: underline dotted;
+          text-decoration: underline dotted;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+          font-size: inherit;
+          font-weight: inherit;
+        }
+
+        a {
+          color: inherit;
+          -webkit-text-decoration: inherit;
+          text-decoration: inherit;
+        }
+
+        b,
+        strong {
+          font-weight: bolder;
+        }
+
+        code,
+        kbd,
+        samp,
+        pre {
+          font-family: var(--default-mono-font-family,
+              ui-monospace,
+              SFMono-Regular,
+              Menlo,
+              Monaco,
+              Consolas,
+              "Liberation Mono",
+              "Courier New",
+              monospace);
+          font-feature-settings: var(--default-mono-font-feature-settings,
+              normal);
+          font-variation-settings: var(--default-mono-font-variation-settings,
+              normal);
+          font-size: 1em;
+        }
+
+        small {
+          font-size: 80%;
+        }
+
+        sub,
+        sup {
+          font-size: 75%;
+          line-height: 0;
+          position: relative;
+          vertical-align: baseline;
+        }
+
+        sub {
+          bottom: -0.25em;
+        }
+
+        sup {
+          top: -0.5em;
+        }
+
+        table {
+          text-indent: 0;
+          border-color: inherit;
+          border-collapse: collapse;
+        }
+
+        :-moz-focusring {
+          outline: auto;
+        }
+
+        progress {
+          vertical-align: baseline;
+        }
+
+        summary {
+          display: list-item;
+        }
+
+        ol,
+        ul,
+        menu {
+          list-style: none;
+        }
+
+        img,
+        svg,
+        video,
+        canvas,
+        audio,
+        iframe,
+        embed,
+        object {
+          display: block;
+          vertical-align: middle;
+        }
+
+        img,
+        video {
+          max-width: 100%;
+          height: auto;
+        }
+
+        button,
+        input,
+        select,
+        optgroup,
+        textarea,
+        ::file-selector-button {
+          font: inherit;
+          font-feature-settings: inherit;
+          font-variation-settings: inherit;
+          letter-spacing: inherit;
+          color: inherit;
+          border-radius: 0;
+          background-color: transparent;
+          opacity: 1;
+        }
+
+        :where(select:is([multiple], [size])) optgroup {
+          font-weight: bolder;
+        }
+
+        :where(select:is([multiple], [size])) optgroup option {
+          padding-inline-start: 20px;
+        }
+
+        ::file-selector-button {
+          margin-inline-end: 4px;
+        }
+
+        ::placeholder {
+          opacity: 1;
+        }
+
+        @supports (not (-webkit-appearance: -apple-pay-button)) or (contain-intrinsic-size: 1px) {
+          ::placeholder {
+            color: currentcolor;
+
+            @supports (color: color-mix(in lab, red, red)) {
+              color: color-mix(in oklab, currentcolor 50%, transparent);
+            }
+          }
+        }
+
+        textarea {
+          resize: vertical;
+        }
+
+        ::-webkit-search-decoration {
+          -webkit-appearance: none;
+        }
+
+        ::-webkit-date-and-time-value {
+          min-height: 1lh;
+          text-align: inherit;
+        }
+
+        ::-webkit-datetime-edit {
+          display: inline-flex;
+        }
+
+        ::-webkit-datetime-edit-fields-wrapper {
+          padding: 0;
+        }
+
+        ::-webkit-datetime-edit,
+        ::-webkit-datetime-edit-year-field,
+        ::-webkit-datetime-edit-month-field,
+        ::-webkit-datetime-edit-day-field,
+        ::-webkit-datetime-edit-hour-field,
+        ::-webkit-datetime-edit-minute-field,
+        ::-webkit-datetime-edit-second-field,
+        ::-webkit-datetime-edit-millisecond-field,
+        ::-webkit-datetime-edit-meridiem-field {
+          padding-block: 0;
+        }
+
+        ::-webkit-calendar-picker-indicator {
+          line-height: 1;
+        }
+
+        :-moz-ui-invalid {
+          box-shadow: none;
+        }
+
+        button,
+        input:where([type="button"], [type="reset"], [type="submit"]),
+        ::file-selector-button {
+          appearance: button;
+        }
+
+        ::-webkit-inner-spin-button,
+        ::-webkit-outer-spin-button {
+          height: auto;
+        }
+
+        [hidden]:where(:not([hidden="until-found"])) {
+          display: none !important;
+        }
+      }
+
+      @layer utilities {
+        .pointer-events-none {
+          pointer-events: none;
+        }
+
+        .absolute {
+          position: absolute;
+        }
+
+        .relative {
+          position: relative;
+        }
+
+        .inset-0 {
+          inset: calc(var(--spacing) * 0);
+        }
+
+        .top-0 {
+          top: calc(var(--spacing) * 0);
+        }
+
+        .top-1\.5 {
+          top: calc(var(--spacing) * 1.5);
+        }
+
+        .right-1\.5 {
+          right: calc(var(--spacing) * 1.5);
+        }
+
+        .bottom-0 {
+          bottom: calc(var(--spacing) * 0);
+        }
+
+        .bottom-20 {
+          bottom: calc(var(--spacing) * 20);
+        }
+
+        .left-0 {
+          left: calc(var(--spacing) * 0);
+        }
+
+        .left-3 {
+          left: calc(var(--spacing) * 3);
+        }
+
+        .z-10 {
+          z-index: 10;
+        }
+
+        .mx-5 {
+          margin-inline: calc(var(--spacing) * 5);
+        }
+
+        .mt-0\.5 {
+          margin-top: calc(var(--spacing) * 0.5);
+        }
+
+        .mt-1 {
+          margin-top: calc(var(--spacing) * 1);
+        }
+
+        .mt-1\.5 {
+          margin-top: calc(var(--spacing) * 1.5);
+        }
+
+        .mt-2 {
+          margin-top: calc(var(--spacing) * 2);
+        }
+
+        .mt-3 {
+          margin-top: calc(var(--spacing) * 3);
+        }
+
+        .mt-4 {
+          margin-top: calc(var(--spacing) * 4);
+        }
+
+        .mb-0\.5 {
+          margin-bottom: calc(var(--spacing) * 0.5);
+        }
+
+        .mb-1 {
+          margin-bottom: calc(var(--spacing) * 1);
+        }
+
+        .mb-1\.5 {
+          margin-bottom: calc(var(--spacing) * 1.5);
+        }
+
+        .mb-2 {
+          margin-bottom: calc(var(--spacing) * 2);
+        }
+
+        .mb-3 {
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .mb-4 {
+          margin-bottom: calc(var(--spacing) * 4);
+        }
+
+        .mb-5 {
+          margin-bottom: calc(var(--spacing) * 5);
+        }
+
+        .block {
+          display: block;
+        }
+
+        .flex {
+          display: flex;
+        }
+
+        .grid {
+          display: grid;
+        }
+
+        .inline-flex {
+          display: inline-flex;
+        }
+
+        .h-0\.5 {
+          height: calc(var(--spacing) * 0.5);
+        }
+
+        .h-1 {
+          height: calc(var(--spacing) * 1);
+        }
+
+        .h-1\.5 {
+          height: calc(var(--spacing) * 1.5);
+        }
+
+        .h-2 {
+          height: calc(var(--spacing) * 2);
+        }
+
+        .h-4 {
+          height: calc(var(--spacing) * 4);
+        }
+
+        .h-5 {
+          height: calc(var(--spacing) * 5);
+        }
+
+        .h-6 {
+          height: calc(var(--spacing) * 6);
+        }
+
+        .h-7 {
+          height: calc(var(--spacing) * 7);
+        }
+
+        .h-8 {
+          height: calc(var(--spacing) * 8);
+        }
+
+        .h-9 {
+          height: calc(var(--spacing) * 9);
+        }
+
+        .h-10 {
+          height: calc(var(--spacing) * 10);
+        }
+
+        .h-11 {
+          height: calc(var(--spacing) * 11);
+        }
+
+        .h-16 {
+          height: calc(var(--spacing) * 16);
+        }
+
+        .h-24 {
+          height: calc(var(--spacing) * 24);
+        }
+
+        .h-36 {
+          height: calc(var(--spacing) * 36);
+        }
+
+        .h-full {
+          height: 100%;
+        }
+
+        .w-0\.5 {
+          width: calc(var(--spacing) * 0.5);
+        }
+
+        .w-1\.5 {
+          width: calc(var(--spacing) * 1.5);
+        }
+
+        .w-2 {
+          width: calc(var(--spacing) * 2);
+        }
+
+        .w-4 {
+          width: calc(var(--spacing) * 4);
+        }
+
+        .w-5 {
+          width: calc(var(--spacing) * 5);
+        }
+
+        .w-6 {
+          width: calc(var(--spacing) * 6);
+        }
+
+        .w-7 {
+          width: calc(var(--spacing) * 7);
+        }
+
+        .w-8 {
+          width: calc(var(--spacing) * 8);
+        }
+
+        .w-9 {
+          width: calc(var(--spacing) * 9);
+        }
+
+        .w-10 {
+          width: calc(var(--spacing) * 10);
+        }
+
+        .w-11 {
+          width: calc(var(--spacing) * 11);
+        }
+
+        .w-16 {
+          width: calc(var(--spacing) * 16);
+        }
+
+        .w-24 {
+          width: calc(var(--spacing) * 24);
+        }
+
+        .w-32 {
+          width: calc(var(--spacing) * 32);
+        }
+
+        .w-44 {
+          width: calc(var(--spacing) * 44);
+        }
+
+        .w-64 {
+          width: calc(var(--spacing) * 64);
+        }
+
+        .w-\[60\%\] {
+          width: 60%;
+        }
+
+        .w-\[65\%\] {
+          width: 65%;
+        }
+
+        .w-\[75\%\] {
+          width: 75%;
+        }
+
+        .w-full {
+          width: 100%;
+        }
+
+        .w-px {
+          width: 1px;
+        }
+
+        .max-w-\[78\%\] {
+          max-width: 78%;
+        }
+
+        .min-w-\[80px\] {
+          min-width: 80px;
+        }
+
+        .flex-1 {
+          flex: 1;
+        }
+
+        .flex-shrink-0 {
+          flex-shrink: 0;
+        }
+
+        .rotate-\[-90deg\] {
+          rotate: -90deg;
+        }
+
+        .grid-cols-1 {
+          grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        .grid-cols-3 {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid-cols-7 {
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+
+        .flex-col {
+          flex-direction: column;
+        }
+
+        .flex-wrap {
+          flex-wrap: wrap;
+        }
+
+        .items-baseline {
+          align-items: baseline;
+        }
+
+        .items-center {
+          align-items: center;
+        }
+
+        .items-end {
+          align-items: flex-end;
+        }
+
+        .items-start {
+          align-items: flex-start;
+        }
+
+        .items-stretch {
+          align-items: stretch;
+        }
+
+        .justify-around {
+          justify-content: space-around;
+        }
+
+        .justify-between {
+          justify-content: space-between;
+        }
+
+        .justify-center {
+          justify-content: center;
+        }
+
+        .justify-end {
+          justify-content: flex-end;
+        }
+
+        .gap-1 {
+          gap: calc(var(--spacing) * 1);
+        }
+
+        .gap-1\.5 {
+          gap: calc(var(--spacing) * 1.5);
+        }
+
+        .gap-2 {
+          gap: calc(var(--spacing) * 2);
+        }
+
+        .gap-3 {
+          gap: calc(var(--spacing) * 3);
+        }
+
+        .gap-4 {
+          gap: calc(var(--spacing) * 4);
+        }
+
+        .overflow-hidden {
+          overflow: hidden;
+        }
+
+        .rounded-full {
+          border-radius: calc(infinity * 1px);
+        }
+
+        .rounded-lg {
+          border-radius: var(--radius-lg);
+        }
+
+        .rounded-md {
+          border-radius: var(--radius-md);
+        }
+
+        .rounded-sm {
+          border-radius: var(--radius-sm);
+        }
+
+        .rounded-xl {
+          border-radius: var(--radius-xl);
+        }
+
+        .rounded-tl-sm {
+          border-top-left-radius: var(--radius-sm);
+        }
+
+        .rounded-tr-sm {
+          border-top-right-radius: var(--radius-sm);
+        }
+
+        .border {
+          border-style: var(--tw-border-style);
+          border-width: 1px;
+        }
+
+        .border-2 {
+          border-style: var(--tw-border-style);
+          border-width: 2px;
+        }
+
+        .border-t {
+          border-top-style: var(--tw-border-style);
+          border-top-width: 1px;
+        }
+
+        .border-b {
+          border-bottom-style: var(--tw-border-style);
+          border-bottom-width: 1px;
+        }
+
+        .border-border {
+          border-color: var(--color-border);
+        }
+
+        .border-primary {
+          border-color: var(--color-primary);
+        }
+
+        .bg-amber {
+          background-color: var(--color-amber);
+        }
+
+        .bg-background {
+          background-color: var(--color-background);
+        }
+
+        .bg-border {
+          background-color: var(--color-border);
+        }
+
+        .bg-card {
+          background-color: var(--color-card);
+        }
+
+        .bg-card2 {
+          background-color: var(--color-card2);
+        }
+
+        .bg-current {
+          background-color: currentcolor;
+        }
+
+        .bg-gold-dark {
+          background-color: var(--color-gold-dark);
+        }
+
+        .bg-lime {
+          background-color: var(--color-lime);
+        }
+
+        .bg-muted-foreground {
+          background-color: var(--color-muted-foreground);
+        }
+
+        .bg-primary {
+          background-color: var(--color-primary);
+        }
+
+        .bg-primary-foreground {
+          background-color: var(--color-primary-foreground);
+        }
+
+        .bg-transparent {
+          background-color: transparent;
+        }
+
+        .bg-gradient-to-t {
+          --tw-gradient-position: to top in oklab;
+          background-image: linear-gradient(var(--tw-gradient-stops));
+        }
+
+        .from-background {
+          --tw-gradient-from: var(--color-background);
+          --tw-gradient-stops: var(--tw-gradient-via-stops,
+              var(--tw-gradient-position),
+              var(--tw-gradient-from) var(--tw-gradient-from-position),
+              var(--tw-gradient-to) var(--tw-gradient-to-position));
+        }
+
+        .via-background\/70 {
+          --tw-gradient-via: color-mix(in srgb, #0a0a0a 70%, transparent);
+
+          @supports (color: color-mix(in lab, red, red)) {
+            --tw-gradient-via: color-mix(in oklab,
+                var(--color-background) 70%,
+                transparent);
+          }
+
+          --tw-gradient-via-stops: var(--tw-gradient-position),
+          var(--tw-gradient-from) var(--tw-gradient-from-position),
+          var(--tw-gradient-via) var(--tw-gradient-via-position),
+          var(--tw-gradient-to) var(--tw-gradient-to-position);
+          --tw-gradient-stops: var(--tw-gradient-via-stops);
+        }
+
+        .to-transparent {
+          --tw-gradient-to: transparent;
+          --tw-gradient-stops: var(--tw-gradient-via-stops,
+              var(--tw-gradient-position),
+              var(--tw-gradient-from) var(--tw-gradient-from-position),
+              var(--tw-gradient-to) var(--tw-gradient-to-position));
+        }
+
+        .object-contain {
+          object-fit: contain;
+        }
+
+        .object-cover {
+          object-fit: cover;
+        }
+
+        .p-2\.5 {
+          padding: calc(var(--spacing) * 2.5);
+        }
+
+        .p-3 {
+          padding: calc(var(--spacing) * 3);
+        }
+
+        .p-3\.5 {
+          padding: calc(var(--spacing) * 3.5);
+        }
+
+        .p-4 {
+          padding: calc(var(--spacing) * 4);
+        }
+
+        .px-2 {
+          padding-inline: calc(var(--spacing) * 2);
+        }
+
+        .px-2\.5 {
+          padding-inline: calc(var(--spacing) * 2.5);
+        }
+
+        .px-3 {
+          padding-inline: calc(var(--spacing) * 3);
+        }
+
+        .px-4 {
+          padding-inline: calc(var(--spacing) * 4);
+        }
+
+        .px-5 {
+          padding-inline: calc(var(--spacing) * 5);
+        }
+
+        .py-0\.5 {
+          padding-block: calc(var(--spacing) * 0.5);
+        }
+
+        .py-1 {
+          padding-block: calc(var(--spacing) * 1);
+        }
+
+        .py-1\.5 {
+          padding-block: calc(var(--spacing) * 1.5);
+        }
+
+        .py-2 {
+          padding-block: calc(var(--spacing) * 2);
+        }
+
+        .py-2\.5 {
+          padding-block: calc(var(--spacing) * 2.5);
+        }
+
+        .py-3 {
+          padding-block: calc(var(--spacing) * 3);
+        }
+
+        .py-4 {
+          padding-block: calc(var(--spacing) * 4);
+        }
+
+        .pt-3 {
+          padding-top: calc(var(--spacing) * 3);
+        }
+
+        .pt-12 {
+          padding-top: calc(var(--spacing) * 12);
+        }
+
+        .pb-4 {
+          padding-bottom: calc(var(--spacing) * 4);
+        }
+
+        .pb-8 {
+          padding-bottom: calc(var(--spacing) * 8);
+        }
+
+        .pl-3 {
+          padding-left: calc(var(--spacing) * 3);
+        }
+
+        .text-center {
+          text-align: center;
+        }
+
+        .text-right {
+          text-align: right;
+        }
+
+        .font-body {
+          font-family: var(--font-body);
+        }
+
+        .font-headings {
+          font-family: var(--font-headings);
+        }
+
+        .text-2xl {
+          font-size: var(--text-2xl);
+          line-height: var(--tw-leading, var(--text-2xl--line-height));
+        }
+
+        .text-3xl {
+          font-size: var(--text-3xl);
+          line-height: var(--tw-leading, var(--text-3xl--line-height));
+        }
+
+        .text-base {
+          font-size: var(--text-base);
+          line-height: var(--tw-leading, var(--text-base--line-height));
+        }
+
+        .text-lg {
+          font-size: var(--text-lg);
+          line-height: var(--tw-leading, var(--text-lg--line-height));
+        }
+
+        .text-sm {
+          font-size: var(--text-sm);
+          line-height: var(--tw-leading, var(--text-sm--line-height));
+        }
+
+        .text-xl {
+          font-size: var(--text-xl);
+          line-height: var(--tw-leading, var(--text-xl--line-height));
+        }
+
+        .text-xs {
+          font-size: var(--text-xs);
+          line-height: var(--tw-leading, var(--text-xs--line-height));
+        }
+
+        .leading-none {
+          --tw-leading: 1;
+          line-height: 1;
+        }
+
+        .leading-relaxed {
+          --tw-leading: var(--leading-relaxed);
+          line-height: var(--leading-relaxed);
+        }
+
+        .leading-tight {
+          --tw-leading: var(--leading-tight);
+          line-height: var(--leading-tight);
+        }
+
+        .font-bold {
+          --tw-font-weight: var(--font-weight-bold);
+          font-weight: var(--font-weight-bold);
+        }
+
+        .font-medium {
+          --tw-font-weight: var(--font-weight-medium);
+          font-weight: var(--font-weight-medium);
+        }
+
+        .font-normal {
+          --tw-font-weight: var(--font-weight-normal);
+          font-weight: var(--font-weight-normal);
+        }
+
+        .font-semibold {
+          --tw-font-weight: var(--font-weight-semibold);
+          font-weight: var(--font-weight-semibold);
+        }
+
+        .tracking-wide {
+          --tw-tracking: var(--tracking-wide);
+          letter-spacing: var(--tracking-wide);
+        }
+
+        .tracking-widest {
+          --tw-tracking: var(--tracking-widest);
+          letter-spacing: var(--tracking-widest);
+        }
+
+        .text-amber {
+          color: var(--color-amber);
+        }
+
+        .text-foreground {
+          color: var(--color-foreground);
+        }
+
+        .text-lime {
+          color: var(--color-lime);
+        }
+
+        .text-muted-foreground {
+          color: var(--color-muted-foreground);
+        }
+
+        .text-primary {
+          color: var(--color-primary);
+        }
+
+        .text-primary-foreground {
+          color: var(--color-primary-foreground);
+        }
+
+        .text-red {
+          color: var(--color-red);
+        }
+
+        .uppercase {
+          text-transform: uppercase;
+        }
+
+        .line-through {
+          text-decoration-line: line-through;
+        }
+
+        .opacity-30 {
+          opacity: 30%;
+        }
+
+        .opacity-60 {
+          opacity: 60%;
+        }
+
+        .opacity-70 {
+          opacity: 70%;
+        }
+
+        .last\:mb-0 {
+          &:last-child {
+            margin-bottom: calc(var(--spacing) * 0);
+          }
+        }
+      }
+
+      @property --tw-border-style {
+        syntax: "*";
+        inherits: false;
+        initial-value: solid;
+      }
+
+      @property --tw-gradient-position {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @property --tw-gradient-from {
+        syntax: "<color>";
+        inherits: false;
+        initial-value: #0000;
+      }
+
+      @property --tw-gradient-via {
+        syntax: "<color>";
+        inherits: false;
+        initial-value: #0000;
+      }
+
+      @property --tw-gradient-to {
+        syntax: "<color>";
+        inherits: false;
+        initial-value: #0000;
+      }
+
+      @property --tw-gradient-stops {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @property --tw-gradient-via-stops {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @property --tw-gradient-from-position {
+        syntax: "<length-percentage>";
+        inherits: false;
+        initial-value: 0%;
+      }
+
+      @property --tw-gradient-via-position {
+        syntax: "<length-percentage>";
+        inherits: false;
+        initial-value: 50%;
+      }
+
+      @property --tw-gradient-to-position {
+        syntax: "<length-percentage>";
+        inherits: false;
+        initial-value: 100%;
+      }
+
+      @property --tw-leading {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @property --tw-font-weight {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @property --tw-tracking {
+        syntax: "*";
+        inherits: false;
+      }
+
+      @layer properties {
+        @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+
+          *,
+          ::before,
+          ::after,
+          ::backdrop {
+            --tw-border-style: solid;
+            --tw-gradient-position: initial;
+            --tw-gradient-from: #0000;
+            --tw-gradient-via: #0000;
+            --tw-gradient-to: #0000;
+            --tw-gradient-stops: initial;
+            --tw-gradient-via-stops: initial;
+            --tw-gradient-from-position: 0%;
+            --tw-gradient-via-position: 50%;
+            --tw-gradient-to-position: 100%;
+            --tw-leading: initial;
+            --tw-font-weight: initial;
+            --tw-tracking: initial;
+          }
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="bg-background flex flex-col font-body" data-component="@screens/AICoach.jsx">
+      <div class="flex items-center justify-between px-5 pt-12 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+            <span class="text-primary-foreground" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 18px;
+                  height: 18px;
+                " data-icon="sparkles" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="2.6666666666666665">
+                  <path
+                    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4">
+                  </path>
+                  <circle cx="4" cy="20" r="2"></circle>
+                </g>
+              </svg></span>
+          </div>
+          <div>
+            <h1 class="text-lg font-headings font-bold text-foreground">
+              <span data-file="/screens/AICoach.jsx" data-idx="13">AI Coach</span>
+            </h1>
+            <div class="flex items-center gap-1.5">
+              <div class="w-1.5 h-1.5 rounded-full bg-lime"></div>
+              <span class="text-xs font-body text-muted-foreground"><span data-file="/screens/AICoach.jsx"
+                  data-idx="14">Active — remembers your history</span></span>
+            </div>
+          </div>
+        </div>
+        <a class="text-xs font-body text-primary" data-media-type="banani-button"><span data-file="/screens/AICoach.jsx"
+            data-idx="15">Memory</span></a>
+      </div>
+      <div class="px-5 mb-4">
+        <p class="text-xs font-body text-muted-foreground uppercase tracking-widest mb-2">
+          <span data-file="/screens/AICoach.jsx" data-idx="16">AI Remembers</span>
+        </p>
+        <div class="flex gap-2 flex-wrap">
+          <span
+            class="px-2.5 py-1 rounded-full bg-card border border-border text-xs font-body text-muted-foreground flex items-center gap-1.5"><span
+              class="text-primary" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 10px;
+                  height: 10px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="10px" height="10px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span data-file="/screens/AICoach.jsx" data-idx="4">Bench plateau @ 80kg</span></span><span
+            class="px-2.5 py-1 rounded-full bg-card border border-border text-xs font-body text-muted-foreground flex items-center gap-1.5"><span
+              class="text-primary" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 10px;
+                  height: 10px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="10px" height="10px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span data-file="/screens/AICoach.jsx" data-idx="5">Left shoulder strain —
+              Jun</span></span><span
+            class="px-2.5 py-1 rounded-full bg-card border border-border text-xs font-body text-muted-foreground flex items-center gap-1.5"><span
+              class="text-primary" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 10px;
+                  height: 10px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="10px" height="10px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span data-file="/screens/AICoach.jsx" data-idx="6">Prefers AM workouts</span></span><span
+            class="px-2.5 py-1 rounded-full bg-card border border-border text-xs font-body text-muted-foreground flex items-center gap-1.5"><span
+              class="text-primary" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 10px;
+                  height: 10px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="10px" height="10px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span data-file="/screens/AICoach.jsx" data-idx="7">Lactose intolerant</span></span><span
+            class="px-2.5 py-1 rounded-full bg-card border border-border text-xs font-body text-muted-foreground flex items-center gap-1.5"><span
+              class="text-primary" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 10px;
+                  height: 10px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="10px" height="10px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span data-file="/screens/AICoach.jsx" data-idx="8">Goal: 100kg bench</span></span>
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="flex items-start gap-2 mb-4 px-5" data-component="@components/ChatBubble.jsx">
+          <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-primary-foreground" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 13px;
+                  height: 13px;
+                " data-icon="sparkles" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="13px" height="13px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="3.6923076923076925">
+                  <path
+                    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4">
+                  </path>
+                  <circle cx="4" cy="20" r="2"></circle>
+                </g>
+              </svg></span>
+          </div>
+          <div class="max-w-[78%] bg-card border border-border rounded-xl rounded-tl-sm px-4 py-3">
+            <p class="text-sm font-body leading-relaxed text-foreground">
+              <span data-file="/screens/AICoach.jsx" data-idx="0">Hey Alex! I noticed your bench press has plateaued at
+                80kg
+                for 3 sessions. Want me to suggest a breakthrough
+                protocol?</span>
+            </p>
+            <p class="text-xs font-body mt-1.5 text-muted-foreground">
+              9:38 AM
+            </p>
+          </div>
+        </div>
+        <div class="flex items-end justify-end gap-2 mb-4 px-5" data-component="@components/ChatBubble.jsx">
+          <div class="max-w-[78%] bg-primary rounded-xl rounded-tr-sm px-4 py-3">
+            <p class="text-sm font-body leading-relaxed text-primary-foreground">
+              <span data-file="/screens/AICoach.jsx" data-idx="1">Yes, let's do it. What do you recommend?</span>
+            </p>
+            <p class="text-xs font-body mt-1.5 text-primary-foreground opacity-70">
+              9:39 AM
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-2 mb-4 px-5" data-component="@components/ChatBubble.jsx">
+          <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-primary-foreground" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 13px;
+                  height: 13px;
+                " data-icon="sparkles" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="13px" height="13px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="3.6923076923076925">
+                  <path
+                    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4">
+                  </path>
+                  <circle cx="4" cy="20" r="2"></circle>
+                </g>
+              </svg></span>
+          </div>
+          <div class="max-w-[78%] bg-card border border-border rounded-xl rounded-tl-sm px-4 py-3">
+            <p class="text-sm font-body leading-relaxed text-foreground">
+              <span data-file="/screens/AICoach.jsx" data-idx="2">Based on your history, I'd suggest a 3-week wave
+                loading
+                cycle: Week 1 at 75% (6×4), Week 2 at 80% (5×3), Week 3 at 85%
+                (4×2). Your recovery data supports this intensity
+                increase.</span>
+            </p>
+            <p class="text-xs font-body mt-1.5 text-muted-foreground">
+              9:41 AM
+            </p>
+          </div>
+        </div>
+        <div class="flex items-end justify-end gap-2 mb-4 px-5" data-component="@components/ChatBubble.jsx">
+          <div class="max-w-[78%] bg-primary rounded-xl rounded-tr-sm px-4 py-3">
+            <p class="text-sm font-body leading-relaxed text-primary-foreground">
+              <span data-file="/screens/AICoach.jsx" data-idx="3">That sounds good. What about nutrition to support
+                this?</span>
+            </p>
+            <p class="text-xs font-body mt-1.5 text-primary-foreground opacity-70">
+              9:42 AM
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 px-5 mb-4">
+          <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+            <span class="text-primary-foreground" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 13px;
+                  height: 13px;
+                " data-icon="sparkles" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="13px" height="13px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="3.6923076923076925">
+                  <path
+                    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4">
+                  </path>
+                  <circle cx="4" cy="20" r="2"></circle>
+                </g>
+              </svg></span>
+          </div>
+          <div class="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-1.5">
+            <div class="w-1.5 h-1.5 rounded-full bg-muted-foreground"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-muted-foreground opacity-60"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-muted-foreground opacity-30"></div>
+          </div>
+        </div>
+      </div>
+      <div class="px-5 mb-4">
+        <p class="text-xs font-body text-muted-foreground uppercase tracking-widest mb-2">
+          <span data-file="/screens/AICoach.jsx" data-idx="17">Suggested</span>
+        </p>
+        <div class="flex gap-2 flex-wrap">
+          <a class="px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-body text-muted-foreground"
+            data-media-type="banani-button"><span data-file="/screens/AICoach.jsx" data-idx="9">How should I eat on rest
+              days?</span></a><a
+            class="px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-body text-muted-foreground"
+            data-media-type="banani-button"><span data-file="/screens/AICoach.jsx" data-idx="10">Analyze my sleep this
+              week</span></a><a
+            class="px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-body text-muted-foreground"
+            data-media-type="banani-button"><span data-file="/screens/AICoach.jsx" data-idx="11">Build me a 4-week
+              plan</span></a><a
+            class="px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-body text-muted-foreground"
+            data-media-type="banani-button"><span data-file="/screens/AICoach.jsx" data-idx="12">What's my injury
+              risk?</span></a>
+        </div>
+      </div>
+      <div class="mx-5 mb-5 flex items-center gap-2">
+        <div class="flex-1 flex items-center gap-2 bg-card border border-border rounded-xl px-4 py-3">
+          <span class="flex-1 text-sm font-body text-muted-foreground"><span data-file="/screens/AICoach.jsx"
+              data-idx="18">Ask about nutrition, workouts...</span></span><span class="text-primary" style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                width: 16px;
+                height: 16px;
+              " data-icon="mic" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+              width="16px" height="16px" viewBox="0 0 24 24">
+              <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
+                <path d="M12 19v3m7-12v2a7 7 0 0 1-14 0v-2"></path>
+                <rect width="6" height="13" x="9" y="2" rx="3"></rect>
+              </g>
+            </svg></span>
+        </div>
+        <button class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center"
+          data-media-type="banani-button">
+          <span class="text-primary-foreground" style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                width: 16px;
+                height: 16px;
+              " data-icon="send" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+              width="16px" height="16px" viewBox="0 0 24 24">
+              <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11zm7.318-19.539l-10.94 10.939">
+              </path>
+            </svg></span>
+        </button>
+      </div>
+      <div class="bg-card border-t border-border px-2 pb-8 pt-3" data-component="@components/MobileBottomNav.jsx">
+        <div class="flex items-center justify-around">
+          <a class="flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-muted-foreground"
+            data-media-type="banani-button"><span class="" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 20px;
+                  height: 20px;
+                " data-icon="home" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="20px" height="20px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4">
+                  <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path>
+                  <path
+                    d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z">
+                  </path>
+                </g>
+              </svg></span><span class="text-xs font-body text-muted-foreground">Home</span></a><a
+            class="flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-muted-foreground"
+            data-media-type="banani-button"><span class="" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 20px;
+                  height: 20px;
+                " data-icon="dumbbell" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="2.4"
+                  d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829zM2.5 21.5l1.4-1.4M20.1 3.9l1.4-1.4M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829zM9.6 14.4l4.8-4.8">
+                </path>
+              </svg></span><span class="text-xs font-body text-muted-foreground">Workout</span></a><a
+            class="flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-primary"
+            data-media-type="banani-button"><span class="" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 20px;
+                  height: 20px;
+                " data-icon="brain" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="20px" height="20px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4">
+                  <path
+                    d="M12 18V5m3 8a4.17 4.17 0 0 1-3-4a4.17 4.17 0 0 1-3 4m8.598-6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5">
+                  </path>
+                  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path>
+                  <path d="M18 18a4 4 0 0 0 2-7.464"></path>
+                  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path>
+                  <path d="M6 18a4 4 0 0 1-2-7.464"></path>
+                  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path>
+                </g>
+              </svg></span><span class="text-xs font-body font-bold text-primary">AI Coach</span></a><a
+            class="flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-muted-foreground"
+            data-media-type="banani-button"><span class="" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 20px;
+                  height: 20px;
+                " data-icon="bar-chart-2" data-component="@globalComponents/Icon.jsx"><svg
+                xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="2.4" d="M5 21v-6m7 6V3m7 18V9"></path>
+              </svg></span><span class="text-xs font-body text-muted-foreground">Progress</span></a><a
+            class="flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-muted-foreground"
+            data-media-type="banani-button"><span class="" style="
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                  width: 20px;
+                  height: 20px;
+                " data-icon="user" data-component="@globalComponents/Icon.jsx"><svg xmlns="http://www.w3.org/2000/svg"
+                width="20px" height="20px" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </g>
+              </svg></span><span class="text-xs font-body text-muted-foreground">Profile</span></a>
+        </div>
+      </div>
+    </div>
+  </body>
+
+  </html>
+  <script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
+</div>

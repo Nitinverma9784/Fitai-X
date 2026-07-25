@@ -1,27 +1,24 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from '../core/database';
 import { calculateRecoveryScore } from '../services/ai_recovery_score/score';
+import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
 
 const router = Router();
 
-function getUserId(req: Request): number {
-  const id = parseInt(req.headers['x-user-id'] as string, 10);
-  return isNaN(id) ? 1 : id;
-}
-
-router.get('/latest', async (req: Request, res: Response) => {
+router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const log = await db.getLatestRecovery(getUserId(req));
+    const userId = req.user?.userId || 1;
+    const log = await db.getLatestRecovery(userId);
     res.json({ success: true, data: log });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/insights', async (req: Request, res: Response) => {
+router.post('/insights', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { sleepHours = 8.2, hrv = 68, soreness = 'Low' } = req.body;
-    const userId = getUserId(req);
+    const userId = req.user?.userId || 1;
     const score = await calculateRecoveryScore({
       sleepHours,
       hrvMs: hrv,

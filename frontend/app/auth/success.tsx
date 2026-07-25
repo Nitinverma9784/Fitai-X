@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/theme';
-import { FitGuruBot } from '@/components/FitGuruBot';
 import { sessionService } from '@/services/sessionService';
+
+const logoImg = require('@/assets/images/logo.png');
 
 /**
  * Handles Google OAuth redirect from backend.
@@ -60,8 +61,7 @@ export default function AuthSuccessScreen() {
 
   return (
     <View style={styles.container}>
-      <FitGuruBot size={80} />
-      <Text style={styles.title}>FitAI Pro</Text>
+      <Image source={logoImg} style={{ width: 220, height: 90, resizeMode: 'contain' }} />
       <ActivityIndicator size="large" color={Colors.gold} style={{ marginTop: 24 }} />
       <Text style={styles.message}>{message}</Text>
     </View>

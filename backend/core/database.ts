@@ -35,7 +35,7 @@ export async function initDb(): Promise<void> {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         auth_provider VARCHAR(50) DEFAULT 'email',
-        avatar VARCHAR(50),
+        avatar TEXT,
         tier VARCHAR(100) DEFAULT 'FITAI ATHLETE',
         goal VARCHAR(255),
         weight_kg NUMERIC(5,2),
@@ -147,18 +147,18 @@ export const db = {
     return memoryDb.users.find(u => u.email?.toLowerCase() === email?.toLowerCase()) || null;
   },
 
-  async createUser(data: { name: string; email: string; provider?: string; avatar?: string }): Promise<any> {
-    const { name, email, provider = 'email', avatar = 'AT' } = data;
+  async createUser(data: { name: string; email: string; provider?: string; avatar?: string; passwordHash?: string }): Promise<any> {
+    const { name, email, provider = 'email', avatar = 'AT', passwordHash } = data;
 
     if (postgresActive) {
       const res = await pool.query(
         `
-        INSERT INTO users (name, email, auth_provider, avatar, tier, onboarding_completed)
-        VALUES ($1, $2, $3, $4, 'FITAI ATHLETE', FALSE)
-        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, auth_provider = EXCLUDED.auth_provider
+        INSERT INTO users (name, email, auth_provider, avatar, password_hash, tier, onboarding_completed)
+        VALUES ($1, $2, $3, $4, $5, 'FITAI ATHLETE', FALSE)
+        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, auth_provider = EXCLUDED.auth_provider, password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash)
         RETURNING *
       `,
-        [name, email, provider, avatar]
+        [name, email, provider, avatar, passwordHash || null]
       );
       return res.rows[0];
     }
@@ -170,6 +170,7 @@ export const db = {
         name,
         email,
         auth_provider: provider,
+        password_hash: passwordHash,
         avatar,
         tier: 'FITAI ATHLETE',
         onboarding_completed: false,
@@ -178,6 +179,7 @@ export const db = {
       memoryDb.users.push(user);
     } else {
       user.auth_provider = provider;
+      if (passwordHash) user.password_hash = passwordHash;
     }
     return user;
   },

@@ -1,17 +1,12 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from '../core/database';
+import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
 
 const router = Router();
 
-// Helper: extract userId from header, fallback to 1
-function getUserId(req: Request): number {
-  const id = parseInt(req.headers['x-user-id'] as string, 10);
-  return isNaN(id) ? 1 : id;
-}
-
-router.get('/profile', async (req: Request, res: Response) => {
+router.get('/profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.user?.userId || 1;
     const user = await db.getUser(userId);
     res.json({ success: true, data: user });
   } catch (err: any) {
@@ -19,9 +14,9 @@ router.get('/profile', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/onboarding', async (req: Request, res: Response) => {
+router.post('/onboarding', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.user?.userId || 1;
     const user = await db.saveUserOnboarding(userId, req.body);
     res.json({ success: true, data: user });
   } catch (err: any) {
@@ -29,9 +24,9 @@ router.post('/onboarding', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/profile', async (req: Request, res: Response) => {
+router.put('/profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = getUserId(req);
+    const userId = req.user?.userId || 1;
     const updated = await db.updateUser(userId, req.body);
     res.json({ success: true, data: updated });
   } catch (err: any) {

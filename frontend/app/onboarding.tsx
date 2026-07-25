@@ -91,7 +91,7 @@ export default function OnboardingWizardScreen() {
           <Ionicons name="arrow-back" size={20} color={step === 1 ? Colors.card2 : Colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleBox}>
-          <Text style={styles.headerTitle}>FITGURU ONBOARDING</Text>
+          <Text style={styles.headerTitle}>FITAI ATHLETE ONBOARDING</Text>
           <Text style={styles.stepIndicator}>Step {step} of {totalSteps}</Text>
         </View>
         <TouchableOpacity style={styles.draftBtn} onPress={handleNext}>

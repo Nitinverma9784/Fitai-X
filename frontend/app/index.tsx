@@ -16,35 +16,31 @@ import { sessionService } from '@/services/sessionService';
 const logoImg = require('@/assets/images/logo.png');
 
 const { width } = Dimensions.get('window');
-/** Minimum time the splash stays visible so the animation can play fully */
-const MIN_SPLASH_MS = 2800;
+/** Minimum splash screen display time for smooth animation */
+const MIN_SPLASH_MS = 2500;
 
 export default function SplashScreen() {
   const router = useRouter();
 
-  // ── Refs so callbacks don't capture stale state ──────────────────────────
   const animDone = useRef(false);
   const dataDone = useRef(false);
   const destination = useRef<string>('/auth');
 
-  // ── Animated values ───────────────────────────────────────────────────────
-  const logoScale   = useRef(new Animated.Value(0.35)).current;
+  // Animated values
+  const logoScale = useRef(new Animated.Value(0.85)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleY       = useRef(new Animated.Value(28)).current;
-  const subtitleOpacity = useRef(new Animated.Value(0)).current;
-  const barWidth     = useRef(new Animated.Value(0)).current;
+  const tagOpacity = useRef(new Animated.Value(0)).current;
+  const barWidth = useRef(new Animated.Value(0)).current;
   const screenOpacity = useRef(new Animated.Value(1)).current;
 
-  const BAR_MAX = width - 80;
+  const BAR_MAX = 128; // 32 * 4 matching w-32 in splashscreen.html
 
-  /** Called when BOTH animation and data are ready */
   function tryNavigate() {
     if (!animDone.current || !dataDone.current) return;
     Animated.timing(screenOpacity, {
       toValue: 0,
-      duration: 500,
+      duration: 400,
       useNativeDriver: true,
     }).start(() => {
       router.replace(destination.current as any);
@@ -52,39 +48,33 @@ export default function SplashScreen() {
   }
 
   useEffect(() => {
-    // ── 1. Animation sequence ────────────────────────────────────────────────
-    Animated.sequence([
-      Animated.delay(150),
-      // Logo springs in + glow fades in
-      Animated.parallel([
-        Animated.spring(logoScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          damping: 13,
-          stiffness: 110,
-        }),
-        Animated.timing(logoOpacity, { toValue: 1, duration: 550, useNativeDriver: true }),
-        Animated.timing(glowOpacity, { toValue: 0.55, duration: 800, useNativeDriver: true }),
-      ]),
-      Animated.delay(100),
-      // Title slides up
-      Animated.parallel([
-        Animated.timing(titleOpacity, { toValue: 1, duration: 480, useNativeDriver: true }),
-        Animated.timing(titleY, { toValue: 0, duration: 480, useNativeDriver: true }),
-      ]),
-      // Subtitle fades
-      Animated.timing(subtitleOpacity, { toValue: 1, duration: 380, useNativeDriver: true }),
-    ]).start(() => {
-      // Pulsing glow loop once main animation is done
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowOpacity, { toValue: 0.85, duration: 950, useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0.35, duration: 950, useNativeDriver: true }),
-        ])
-      ).start();
-    });
+    // 1. Entrance animation sequence matching splashscreen.html
+    Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        damping: 15,
+        stiffness: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+      Animated.timing(glowOpacity, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: true,
+      }),
+      Animated.timing(tagOpacity, {
+        toValue: 1,
+        duration: 800,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // ── 2. Progress bar fills over MIN_SPLASH_MS ─────────────────────────────
+    // 2. Progress bar fills over MIN_SPLASH_MS
     Animated.timing(barWidth, {
       toValue: BAR_MAX,
       duration: MIN_SPLASH_MS,
@@ -94,12 +84,16 @@ export default function SplashScreen() {
       tryNavigate();
     });
 
-    // ── 3. Session init + profile fetch ──────────────────────────────────────
+    // 3. Session initialization & backend connection
     async function initSession() {
       try {
-        await sessionService.init();           // load persisted session from disk
-        const u = await groqService.getUserProfile();
-        destination.current = (u && u.onboarding_completed) ? '/(tabs)' : '/auth';
+        await sessionService.init();
+        if (!sessionService.isLoggedIn()) {
+          destination.current = '/auth';
+        } else {
+          const u = await groqService.getUserProfile();
+          destination.current = u && u.onboarding_completed ? '/(tabs)' : '/auth';
+        }
       } catch {
         destination.current = '/auth';
       } finally {
@@ -112,53 +106,34 @@ export default function SplashScreen() {
 
   return (
     <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
 
-      {/* Radial gold glow — sits behind the logo */}
-      <Animated.View style={[styles.glow, { opacity: glowOpacity }]} />
-
-      {/* Logo mark image emblem */}
+      {/* Main Logo & Tagline Content */}
       <Animated.View
         style={[
-          styles.logoWrap,
-          { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+          styles.contentWrap,
+          {
+            opacity: logoOpacity,
+            transform: [{ scale: logoScale }],
+          },
         ]}>
-        <View style={styles.logoCircle}>
-          <Image
-            source={logoImg}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
-      </Animated.View>
-
-      {/* Brand text */}
-      <Animated.View
-        style={[
-          styles.titleWrap,
-          { opacity: titleOpacity, transform: [{ translateY: titleY }] },
-        ]}>
-        <Text style={styles.brand}>FITAI X</Text>
-        <Animated.Text style={[styles.tagline, { opacity: subtitleOpacity }]}>
-          INTELLIGENT HYPERTROPHY & BIO-RECOVERY
+        <Image
+          source={logoImg}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Animated.Text style={[styles.tagline, { opacity: tagOpacity }]}>
+          TRAIN SMARTER. NOT HARDER.
         </Animated.Text>
       </Animated.View>
 
-      {/* Gold separator */}
-      <Animated.View style={[styles.separator, { opacity: subtitleOpacity }]} />
-
-      {/* Version badge */}
-      <Animated.Text style={[styles.version, { opacity: subtitleOpacity }]}>
-        FitGuru AI Engine v3 · Powered by Groq
-      </Animated.Text>
-
-      {/* Progress bar at bottom */}
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, { width: barWidth }]} />
+      {/* Bottom Loading Progress Bar */}
+      <View style={styles.bottomWrap}>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, { width: barWidth }]} />
+        </View>
+        <Text style={styles.loadingLabel}>LOADING...</Text>
       </View>
-      <Animated.Text style={[styles.progressLabel, { opacity: subtitleOpacity }]}>
-        Initializing FitGuru AI Engine...
-      </Animated.Text>
     </Animated.View>
   );
 }
@@ -166,91 +141,42 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: '#0a0a0a',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  // Radial glow
-  glow: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: Colors.gold,
-    opacity: 0.08,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 90,
-    elevation: 20,
-  },
-  // Logo
-  logoWrap: {
+  contentWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoCircle: {
-    width: 136,
-    height: 136,
-    borderRadius: 68,
-    backgroundColor: '#121212',
-    borderWidth: 2,
-    borderColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.65,
-    shadowRadius: 28,
-    elevation: 16,
+    zIndex: 10,
   },
   logoImage: {
-    width: 105,
-    height: 105,
-  },
-  // Brand
-  titleWrap: {
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  brand: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: Colors.text,
-    letterSpacing: 8,
+    width: 256,
+    height: 120,
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 32,
   },
   tagline: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: Colors.gold,
-    letterSpacing: 1.6,
-    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.text2,
+    letterSpacing: 2.5,
+    marginTop: 12,
     textAlign: 'center',
   },
-  separator: {
-    width: 48,
-    height: 2,
-    backgroundColor: Colors.gold,
-    borderRadius: 1,
-    marginTop: 24,
-    opacity: 0.6,
-  },
-  version: {
-    fontSize: 10,
-    color: Colors.text2,
-    fontWeight: '600',
-    marginTop: 12,
-    letterSpacing: 0.4,
-  },
-  // Bottom progress
-  progressTrack: {
+  bottomWrap: {
     position: 'absolute',
-    bottom: 72,
-    left: 40,
-    right: 40,
+    bottom: 80,
+    alignItems: 'center',
+    gap: 16,
+  },
+  progressTrack: {
+    width: 128,
     height: 3,
-    backgroundColor: 'rgba(245,196,0,0.15)',
+    backgroundColor: '#101010',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -259,13 +185,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold,
     borderRadius: 2,
   },
-  progressLabel: {
-    position: 'absolute',
-    bottom: 46,
-    fontSize: 10,
+  loadingLabel: {
+    fontSize: 11,
+    fontWeight: '500',
     color: Colors.text2,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 2,
   },
 });
-
