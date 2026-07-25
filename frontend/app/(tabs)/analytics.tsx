@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import {
-  SparklesIcon, TrendingUpIcon, BarbellIcon, FlameIcon,
+  TrendingUpIcon, BarbellIcon, FlameIcon,
   CheckIcon, HeartIcon, ZapIcon,
 } from '@/components/icons/SvgIcons';
 
@@ -40,8 +40,8 @@ export default function AnalyticsScreen() {
         {/* Top Header */}
         <View style={styles.topbar}>
           <View>
-            <Text style={styles.kicker}>ANALYTICS ENGINE</Text>
-            <Text style={styles.title}>Progress & Metrics</Text>
+            <Text style={styles.kicker}>PROGRESS & ANALYTICS</Text>
+            <Text style={styles.title}>Progress Metrics</Text>
           </View>
           <View style={styles.timeBadge}>
             <Text style={styles.timeBadgeText}>LIVE METRICS</Text>

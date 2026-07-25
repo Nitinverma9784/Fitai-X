@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { groqService, UserProfile } from '@/services/groqService';
 import { sessionService } from '@/services/sessionService';
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
   };
 
   const isAvatarUrl = user?.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'));
+  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'FitAI Member');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,22 +84,22 @@ export default function ProfileScreen() {
             ) : (
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarInitials}>
-                  {user?.avatar || (user?.name?.slice(0, 2) || 'AM').toUpperCase()}
+                  {user?.avatar || displayName.slice(0, 2).toUpperCase()}
                 </Text>
               </View>
             )}
 
             <View style={styles.userInfo}>
               <Text style={styles.userName} testID="profile-name">
-                {user?.name || 'Alex Morgan'}
+                {displayName}
               </Text>
               <Text style={styles.userEmail} testID="profile-email">
-                {user?.email || 'alex@fitai.pro'}
+                {user?.email || 'user@fitai.pro'}
               </Text>
 
               <View style={styles.badgeRow}>
                 <View style={styles.proBadge}>
-                  <Text style={styles.proBadgeText}>PRO Member</Text>
+                  <Text style={styles.proBadgeText}>FitAI Member</Text>
                 </View>
                 <View style={styles.verifiedBadge}>
                   <View style={styles.verifiedDot} />
@@ -263,6 +265,23 @@ export default function ProfileScreen() {
               thumbColor="#FFF"
             />
           </View>
+        </View>
+
+        {/* ── Quick Access: Nutrition & Analytics ── */}
+        <View style={styles.cardList}>
+          <Text style={styles.cardTitlePadding}>Tools & Insights</Text>
+
+          <TouchableOpacity style={styles.listRow} activeOpacity={0.8} onPress={() => router.push('/(tabs)/nutrition')}>
+            <Ionicons name="restaurant-outline" size={18} color={Colors.text2} />
+            <Text style={styles.rowLabel}>Nutrition Tracker</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.listRow, { borderBottomWidth: 0 }]} activeOpacity={0.8} onPress={() => router.push('/(tabs)/analytics')}>
+            <Ionicons name="stats-chart-outline" size={18} color={Colors.text2} />
+            <Text style={styles.rowLabel}>Analytics & Progress</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
+          </TouchableOpacity>
         </View>
 
         {/* 6. Log Out Button matching profile.html */}

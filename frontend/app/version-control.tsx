@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,450 +8,389 @@ import {
   SafeAreaView,
   StatusBar,
   TextInput,
+  Modal,
+  ActivityIndicator,
+  Alert,
   Platform,
+  RefreshControl,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import {
-  SearchIcon, FilterIcon, EyeIcon, RefreshIcon, GitDiffIcon,
-} from '@/components/icons/SvgIcons';
+import { workoutService, WorkoutCommit } from '@/services/workoutService';
 
-interface HistoryItem {
-  version: string;
-  date: string;
-  description: string;
-  tags: string[];
+// ─────────────────────────────────────────────────────────────
+// DIFF BADGE
+// ─────────────────────────────────────────────────────────────
+function DiffBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={{ backgroundColor: `${color}18`, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, borderWidth: 1, borderColor: `${color}33` }}>
+      <Text style={{ fontSize: 10, fontWeight: '700', color }}>{label}</Text>
+    </View>
+  );
 }
 
+// ─────────────────────────────────────────────────────────────
+// COMMIT DETAIL MODAL
+// ─────────────────────────────────────────────────────────────
+function CommitDetailModal({
+  commit, visible, onClose, onRollback, isLatest,
+}: {
+  commit: WorkoutCommit | null;
+  visible: boolean;
+  onClose: () => void;
+  onRollback: (versionId: string) => void;
+  isLatest: boolean;
+}) {
+  if (!commit) return null;
+
+  const date = new Date(commit.timestamp);
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  const authorColor =
+    commit.author === 'FitAI Engine' ? Colors.gold :
+      commit.author === 'User Customization' ? '#60A5FA' : '#FF6B6B';
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' }}>
+          <View style={{ width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 }} />
+
+          <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 40 }}>
+            {/* Version badge */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ backgroundColor: 'rgba(245,196,0,0.12)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(245,196,0,0.25)' }}>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: Colors.gold, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                  {commit.versionId}
+                </Text>
+              </View>
+              {isLatest && (
+                <View style={{ backgroundColor: Colors.green + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: Colors.green + '40' }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.green }}>LATEST</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, marginBottom: 4 }}>{commit.commitMessage}</Text>
+            <Text style={{ fontSize: 12, color: Colors.text2, marginBottom: 14 }}>{dateStr} at {timeStr}</Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: authorColor }} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: authorColor }}>{commit.author}</Text>
+            </View>
+
+            {/* Diff counts */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+              {commit.diffSummary.addedCount > 0 && <DiffBadge label={`+${commit.diffSummary.addedCount} added`} color="#4ADE80" />}
+              {commit.diffSummary.removedCount > 0 && <DiffBadge label={`-${commit.diffSummary.removedCount} removed`} color="#FF4444" />}
+              {commit.diffSummary.swappedCount > 0 && <DiffBadge label={`~${commit.diffSummary.swappedCount} swapped`} color={Colors.gold} />}
+              {commit.diffSummary.addedCount === 0 && commit.diffSummary.removedCount === 0 && commit.diffSummary.swappedCount === 0 && (
+                <DiffBadge label="No changes" color={Colors.text2} />
+              )}
+            </View>
+
+            {/* Reasoning */}
+            {commit.aiReasoning && (
+              <View style={{ backgroundColor: 'rgba(245,196,0,0.07)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(245,196,0,0.15)', marginBottom: 18 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold, letterSpacing: 0.5, marginBottom: 6 }}>DECISION REASONING</Text>
+                <Text style={{ fontSize: 12.5, color: Colors.text, lineHeight: 18 }}>{commit.aiReasoning}</Text>
+              </View>
+            )}
+
+            {/* Adaptations */}
+            {commit.adaptations && commit.adaptations.length > 0 && (
+              <View style={{ marginBottom: 18 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.text2, letterSpacing: 0.5, marginBottom: 8 }}>ADAPTATIONS</Text>
+                {commit.adaptations.map((a, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 5 }}>
+                    <Feather name="arrow-right" size={12} color={Colors.gold} style={{ marginTop: 2 }} />
+                    <Text style={{ fontSize: 12.5, color: Colors.text2, flex: 1, lineHeight: 17 }}>{a}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Exercises */}
+            <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.text2, letterSpacing: 0.5, marginBottom: 8 }}>
+              EXERCISES IN THIS VERSION
+            </Text>
+            {commit.exercises.map((ex, i) => (
+              <View key={ex.id || i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.gold, width: 22 }}>{i + 1}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.text }}>{ex.name}</Text>
+                  <Text style={{ fontSize: 11, color: Colors.text2 }}>
+                    {ex.targetMuscle} · {ex.sets}×{ex.reps} · RPE {ex.rpeTarget}
+                  </Text>
+                  {(ex as any).substituteFor && (
+                    <Text style={{ fontSize: 10, color: '#FF6B6B', marginTop: 2 }}>Replaced: {(ex as any).substituteFor}</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+
+            {/* Rollback */}
+            {!isLatest && (
+              <TouchableOpacity
+                style={{ backgroundColor: 'rgba(245,196,0,0.1)', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 22, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                onPress={() => onRollback(commit.versionId)}
+                activeOpacity={0.85}>
+                <Feather name="rotate-ccw" size={15} color={Colors.gold} />
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.gold }}>Restore {commit.versionId}</Text>
+                  <Text style={{ fontSize: 11, color: Colors.text2, marginTop: 1 }}>Creates a new rollback commit in history</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={onClose} style={{ alignItems: 'center', marginTop: 14, paddingVertical: 10 }}>
+              <Text style={{ fontSize: 13, color: Colors.text2 }}>Close</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN SCREEN
+// ─────────────────────────────────────────────────────────────
 export default function VersionControlScreen() {
   const router = useRouter();
+  const [commits, setCommits] = useState<WorkoutCommit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCommit, setSelectedCommit] = useState<WorkoutCommit | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
 
-  const historyItems: HistoryItem[] = [
-    {
-      version: 'v4.1',
-      date: 'Jul 4',
-      description: 'Deload week: reduced intensity 15% across all lifts.',
-      tags: ['Volume -15%', 'Rest +30s', 'Swapped OHP → DB press'],
-    },
-    {
-      version: 'v4.0',
-      date: 'Jun 30',
-      description: 'New mesocycle started. Added progressive overload targeting chest priority.',
-      tags: ['New mesocycle', 'Bench added', 'Rep ranges updated'],
-    },
-    {
-      version: 'v3.9',
-      date: 'Jun 23',
-      description: 'Recovery-focused plan after reported shoulder soreness.',
-      tags: ['Shoulder exercises removed', 'Volume -25%', 'Extra stretching added'],
-    },
-  ];
+  const load = useCallback(async () => {
+    const data = await workoutService.getVersionHistory();
+    setCommits([...data].reverse()); // newest first
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
 
-  const filteredHistory = historyItems.filter(
-    (item) =>
-      item.version.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => { load(); }, [load]);
+
+  const handleRollback = (versionId: string) => {
+    Alert.alert(
+      'Restore Version',
+      `Restore ${versionId}? A new rollback commit will be created — your current plan is preserved.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            setRollingBack(true);
+            setSelectedCommit(null);
+            await workoutService.rollbackToVersion(versionId);
+            await load();
+            setRollingBack(false);
+            Alert.alert('Restored', `Rolled back to ${versionId}.`);
+          },
+        },
+      ]
+    );
+  };
+
+  const filteredCommits = commits.filter(c =>
+    c.versionId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.commitMessage.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.aiReasoning || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.exercises.some(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={s.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>← Back</Text>
+      <CommitDetailModal
+        commit={selectedCommit}
+        visible={!!selectedCommit}
+        onClose={() => setSelectedCommit(null)}
+        onRollback={handleRollback}
+        isLatest={selectedCommit?.versionId === commits[0]?.versionId}
+      />
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.iconBtn}>
+          <Feather name="arrow-left" size={18} color={Colors.text} />
         </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.mainTitle}>Version Control</Text>
-          <Text style={styles.subTitle}>GitHub-style workout history</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.kicker}>WORKOUT HISTORY</Text>
+          <Text style={s.title}>Version Control</Text>
         </View>
+        <TouchableOpacity onPress={() => { setRefreshing(true); load(); }} style={s.iconBtn}>
+          <Feather name="refresh-cw" size={16} color={Colors.gold} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Stats row */}
+      <View style={s.statsRow}>
+        {[
+          { num: commits.length, label: 'Commits' },
+          { num: commits.filter(c => c.author === 'FitAI Engine').length, label: 'Generated' },
+          { num: commits.filter(c => c.author === 'User Customization').length, label: 'Rollbacks' },
+          { num: commits.filter(c => c.author === 'Recovery Auto-Deload').length, label: 'Deloads' },
+        ].map(({ num, label }) => (
+          <View key={label} style={s.statChip}>
+            <Text style={s.statNum}>{num}</Text>
+            <Text style={s.statLabel}>{label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Search */}
+      <View style={s.searchBar}>
+        <Feather name="search" size={15} color={Colors.text2} />
+        <TextInput
+          style={s.searchInput}
+          placeholder="Search commits, exercises..."
+          placeholderTextColor={Colors.text2}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Feather name="x" size={15} color={Colors.text2} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}>
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.gold} />}>
 
-        {/* Search Bar & Filter Button */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <SearchIcon size={16} color={Colors.text2} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search versions..."
-              placeholderTextColor={Colors.text2}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+        {loading && (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <ActivityIndicator size="large" color={Colors.gold} />
+            <Text style={{ color: Colors.text2, marginTop: 12, fontSize: 13 }}>Loading history...</Text>
           </View>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.8}>
-            <FilterIcon size={18} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
+        )}
 
-        {/* Current Active Version Hero Card (v4.2) */}
-        <View style={styles.currentCard}>
-          <View style={styles.currentHeader}>
-            <View style={styles.versionBadgeRow}>
-              <Text style={styles.currentVerText}>v4.2</Text>
-              <View style={styles.currentPill}>
-                <Text style={styles.currentPillText}>Current</Text>
+        {!loading && filteredCommits.length === 0 && (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Feather name="git-commit" size={40} color={Colors.border} />
+            <Text style={{ color: Colors.text, fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 6 }}>No commits yet</Text>
+            <Text style={{ color: Colors.text2, fontSize: 13, textAlign: 'center' }}>
+              Generate your first workout to start tracking version history.
+            </Text>
+          </View>
+        )}
+
+        {/* Git log timeline */}
+        {filteredCommits.map((commit, index) => {
+          const isLatest = index === 0;
+          const isRollback = commit.versionId.includes('rollback');
+          const authorColor =
+            commit.author === 'FitAI Engine' ? Colors.gold :
+              commit.author === 'User Customization' ? '#60A5FA' : '#FF6B6B';
+          const date = new Date(commit.timestamp);
+          const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+          return (
+            <View key={commit.versionId} style={{ flexDirection: 'row' }}>
+              {/* Git tree */}
+              <View style={{ alignItems: 'center', width: 28, marginRight: 12 }}>
+                <View style={[s.gitDot, { backgroundColor: isLatest ? Colors.gold : isRollback ? '#60A5FA' : authorColor }]}>
+                  {isLatest && <Feather name="star" size={7} color="#0A0A0A" />}
+                </View>
+                {index < filteredCommits.length - 1 && <View style={s.gitLine} />}
               </View>
+
+              {/* Commit card */}
+              <TouchableOpacity
+                style={[s.commitCard, isLatest && s.commitCardLatest, { flex: 1, marginBottom: 12 }]}
+                onPress={() => setSelectedCommit(commit)}
+                activeOpacity={0.8}>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[s.versionId, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                      {commit.versionId}
+                    </Text>
+                    {isLatest && (
+                      <View style={s.headBadge}><Text style={s.headBadgeText}>HEAD</Text></View>
+                    )}
+                    {isRollback && (
+                      <View style={{ backgroundColor: '#60A5FA20', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#60A5FA30' }}>
+                        <Text style={{ fontSize: 9, fontWeight: '800', color: '#60A5FA' }}>ROLLBACK</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={s.dateText}>{dateStr} · {timeStr}</Text>
+                </View>
+
+                <Text style={s.commitMsg} numberOfLines={2}>{commit.commitMessage}</Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, marginBottom: 8 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: authorColor }} />
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: authorColor }}>{commit.author}</Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {commit.diffSummary.addedCount > 0 && <DiffBadge label={`+${commit.diffSummary.addedCount}`} color="#4ADE80" />}
+                  {commit.diffSummary.removedCount > 0 && <DiffBadge label={`-${commit.diffSummary.removedCount}`} color="#FF4444" />}
+                  {commit.diffSummary.swappedCount > 0 && <DiffBadge label={`~${commit.diffSummary.swappedCount} swap`} color={Colors.gold} />}
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, color: Colors.text2 }}>
+                    {commit.exercises.length} exercise{commit.exercises.length !== 1 ? 's' : ''}
+                    {commit.exercises[0] ? ` · ${commit.exercises[0].name}${commit.exercises.length > 1 ? ` +${commit.exercises.length - 1}` : ''}` : ''}
+                  </Text>
+                  <Feather name="chevron-right" size={14} color={Colors.text2} />
+                </View>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.currentDateText}>Today, Jul 7</Text>
+          );
+        })}
+
+        {rollingBack && (
+          <View style={{ alignItems: 'center', padding: 20 }}>
+            <ActivityIndicator color={Colors.gold} />
+            <Text style={{ color: Colors.text2, marginTop: 8, fontSize: 12 }}>Creating rollback commit...</Text>
           </View>
-
-          <Text style={styles.currentDesc}>
-            AI increased bench volume +10%, added cable flyes for chest isolation.
-          </Text>
-
-          <View style={styles.currentActionsRow}>
-            <TouchableOpacity style={styles.compareBtn} activeOpacity={0.85}>
-              <GitDiffIcon size={16} color="#0A0A0A" />
-              <Text style={styles.compareBtnText}>Compare</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.rollbackBtn} activeOpacity={0.85}>
-              <RefreshIcon size={16} color={Colors.text} />
-              <Text style={styles.rollbackBtnText}>Rollback</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* HISTORY Kicker */}
-        <Text style={styles.historyKicker}>HISTORY</Text>
-
-        {/* Timeline List with Vertical Branch & Node Dots */}
-        <View style={styles.timelineContainer}>
-          <View style={styles.branchLine} />
-
-          {filteredHistory.map((item, idx) => (
-            <View key={idx} style={styles.timelineItem}>
-              {/* Timeline Node Circle */}
-              <View style={styles.nodeDot}>
-                <View style={styles.nodeInnerDot} />
-              </View>
-
-              {/* History Card */}
-              <View style={styles.historyCard}>
-                <View style={styles.historyHeader}>
-                  <Text style={styles.historyVerText}>{item.version}</Text>
-                  <Text style={styles.historyDateText}>{item.date}</Text>
-                </View>
-
-                <Text style={styles.historyDesc}>{item.description}</Text>
-
-                {/* Tag Pills */}
-                <View style={styles.tagWrap}>
-                  {item.tags.map((tag, tIdx) => (
-                    <View key={tIdx} style={styles.tagPill}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Action Links Row */}
-                <View style={styles.actionLinksRow}>
-                  <TouchableOpacity style={styles.actionLinkItem} activeOpacity={0.75}>
-                    <EyeIcon size={13} color={Colors.gold} />
-                    <Text style={styles.actionLinkText}>View</Text>
-                  </TouchableOpacity>
-
-                  <Text style={styles.actionDot}>•</Text>
-
-                  <TouchableOpacity style={styles.actionLinkItem} activeOpacity={0.75}>
-                    <RefreshIcon size={13} color={Colors.gold} />
-                    <Text style={styles.actionLinkText}>Restore</Text>
-                  </TouchableOpacity>
-
-                  <Text style={styles.actionDot}>•</Text>
-
-                  <TouchableOpacity style={styles.actionLinkItem} activeOpacity={0.75}>
-                    <GitDiffIcon size={13} color={Colors.gold} />
-                    <Text style={styles.actionLinkText}>Diff</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 12,
-    paddingBottom: 14,
-  },
-  backBtn: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 214, 10, 0.18)',
-    marginBottom: 10,
-  },
-  backBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.gold,
-  },
-  titleContainer: {
-    marginBottom: 4,
-  },
-  mainTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.text,
-    letterSpacing: -0.5,
-  },
-  subTitle: {
-    fontSize: 13,
-    color: Colors.text2,
-    marginTop: 2,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  contentContainer: {
-    paddingBottom: 60,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginVertical: 14,
-  },
-  searchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#161616',
-    borderRadius: Radii.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.text,
-    padding: 0,
-  },
-  filterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: Radii.lg,
-    backgroundColor: '#161616',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  currentCard: {
-    backgroundColor: '#141414',
-    borderRadius: Radii.xxl,
-    padding: 18,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: Colors.gold,
-  },
-  currentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  versionBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  currentVerText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.gold,
-  },
-  currentPill: {
-    backgroundColor: Colors.gold,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-  },
-  currentPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0A0A0A',
-  },
-  currentDateText: {
-    fontSize: 12,
-    color: Colors.text2,
-  },
-  currentDesc: {
-    fontSize: 13,
-    color: Colors.text,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  currentActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  compareBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.gold,
-    borderRadius: Radii.full,
-    paddingVertical: 10,
-  },
-  compareBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0A0A0A',
-  },
-  rollbackBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#1E1E1E',
-    borderRadius: Radii.full,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  rollbackBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  historyKicker: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.text2,
-    letterSpacing: 1.2,
-    marginBottom: 14,
-  },
-  timelineContainer: {
-    position: 'relative',
-    paddingLeft: 24,
-  },
-  branchLine: {
-    position: 'absolute',
-    left: 7,
-    top: 14,
-    bottom: 24,
-    width: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  timelineItem: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  nodeDot: {
-    position: 'absolute',
-    left: -24,
-    top: 14,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#0A0A0A',
-    borderWidth: 2,
-    borderColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  nodeInnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.gold,
-  },
-  historyCard: {
-    backgroundColor: '#141414',
-    borderRadius: Radii.xl,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  historyVerText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  historyDateText: {
-    fontSize: 12,
-    color: Colors.text2,
-  },
-  historyDesc: {
-    fontSize: 12.5,
-    color: Colors.text2,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  tagWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 14,
-  },
-  tagPill: {
-    backgroundColor: '#1E1E1E',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.text2,
-  },
-  actionLinksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionLinkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionLinkText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.gold,
-  },
-  actionDot: {
-    fontSize: 12,
-    color: Colors.text2,
-  },
+// ─────────────────────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: 12, gap: 12 },
+  iconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  kicker: { fontSize: 10, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
+  title: { fontSize: 20, fontWeight: '800', color: Colors.text },
+
+  statsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.lg, marginBottom: 14 },
+  statChip: { flex: 1, backgroundColor: Colors.card, borderRadius: Radii.md, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  statNum: { fontSize: 18, fontWeight: '800', color: Colors.gold },
+  statLabel: { fontSize: 9, fontWeight: '700', color: Colors.text2, marginTop: 2 },
+
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.card, borderRadius: Radii.md, paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: Spacing.lg, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
+  searchInput: { flex: 1, fontSize: 13, color: Colors.text },
+
+  gitDot: { width: 14, height: 14, borderRadius: 7, marginTop: 12, alignItems: 'center', justifyContent: 'center' },
+  gitLine: { flex: 1, width: 2, backgroundColor: Colors.border, marginTop: 2 },
+
+  commitCard: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14, borderWidth: 1, borderColor: Colors.border },
+  commitCardLatest: { borderColor: 'rgba(245,196,0,0.35)', backgroundColor: 'rgba(245,196,0,0.03)' },
+  versionId: { fontSize: 13, fontWeight: '800', color: Colors.gold },
+  headBadge: { backgroundColor: 'rgba(245,196,0,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' },
+  headBadgeText: { fontSize: 9, fontWeight: '900', color: Colors.gold },
+  dateText: { fontSize: 10, color: Colors.text2 },
+  commitMsg: { fontSize: 13.5, fontWeight: '700', color: Colors.text, lineHeight: 18 },
 });

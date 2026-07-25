@@ -21,10 +21,11 @@ export default function RecoveryScreen() {
   const [loading, setLoading] = useState(false);
   const [breathingActive, setBreathingActive] = useState(false);
   const [breathPhase, setBreathPhase] = useState<'Inhale' | 'Hold' | 'Exhale' | 'Pause'>('Inhale');
+
   const [insights, setInsights] = useState<RecoveryInsights>({
     readinessPercentage: 92,
     statusLabel: 'Optimal Recovery State',
-    description: 'HRV is 14ms above baseline and sleep efficiency hit 94%. Your neuromuscular system is primed for peak exertion.',
+    description: 'HRV is 14ms above baseline and sleep efficiency hit 94%. Your body is primed for daily activity.',
     recommendations: [
       { category: 'Mobility', title: 'Thoracic & Hip Opener Routine', duration: '12 mins', advice: 'Relieves lower spine stress & opens thoracic cage.', icon: 'refresh-cw' },
       { category: 'Nutrition', title: 'Post-Workout Glycogen & Whey', advice: 'Consume 35g protein + 60g complex carbs within 45m.', icon: 'coffee' },
@@ -76,8 +77,8 @@ export default function RecoveryScreen() {
         {/* Top Header */}
         <View style={styles.topbar}>
           <View>
-            <Text style={styles.kicker}>AI HEALTH & BIO-RECOVERY</Text>
-            <Text style={styles.title}>Recovery Engine</Text>
+            <Text style={styles.kicker}>HEALTH & BIO-RECOVERY</Text>
+            <Text style={styles.title}>Recovery Guide</Text>
           </View>
           <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh} disabled={loading}>
             {loading ? (

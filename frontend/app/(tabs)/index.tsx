@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
@@ -38,6 +39,7 @@ function bmiLabel(bmi: string): string {
 export default function DashboardScreen() {
   const router = useRouter();
   const [chatVisible, setChatVisible] = useState(false);
+  const [tourVisible, setTourVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [latestWorkout, setLatestWorkout] = useState<WorkoutPlan | null>(null);
@@ -88,21 +90,21 @@ export default function DashboardScreen() {
           <View>
             <Text style={styles.greetingSub}>WELCOME BACK 👋</Text>
             <Text style={styles.userName} testID="dashboard-username">
-              {user?.name || 'Athlete'}
+              {user?.name || (user?.email ? user.email.split('@')[0] : 'FitAI Member')}
             </Text>
           </View>
           <View style={styles.topActions}>
-            <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
-              <BellIcon size={20} color={Colors.text2} />
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>2</Text>
-              </View>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.avatar}
               onPress={() => router.push('/(tabs)/profile')}
               testID="avatar-btn">
-              <Text style={styles.avatarText}>{user?.avatar || 'AT'}</Text>
+              {user?.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) ? (
+                <Image source={{ uri: user.avatar }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {user?.avatar && user.avatar.length <= 3 ? user.avatar : (user?.name || 'FA').slice(0, 2).toUpperCase()}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>

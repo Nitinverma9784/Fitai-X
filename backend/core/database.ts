@@ -62,6 +62,15 @@ export async function initDb(): Promise<void> {
         estimated_calories INT NOT NULL,
         target_muscles TEXT[] NOT NULL,
         why_recommendation TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        completed_at TIMESTAMP,
+        session_date DATE DEFAULT CURRENT_DATE,
+        feedback_energy INT DEFAULT 0,
+        feedback_soreness INT DEFAULT 0,
+        feedback_mood INT DEFAULT 0,
+        feedback_notes TEXT,
+        ai_reasoning TEXT,
+        readiness_score INT DEFAULT 70,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -74,8 +83,20 @@ export async function initDb(): Promise<void> {
         rest_sec INT NOT NULL,
         icon VARCHAR(50),
         tip TEXT,
-        completed_sets INT DEFAULT 0
+        completed_sets INT DEFAULT 0,
+        is_completed BOOLEAN DEFAULT FALSE
       );
+
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS session_date DATE DEFAULT CURRENT_DATE;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS feedback_energy INT DEFAULT 0;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS feedback_soreness INT DEFAULT 0;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS feedback_mood INT DEFAULT 0;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS feedback_notes TEXT;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
+      ALTER TABLE workouts ADD COLUMN IF NOT EXISTS readiness_score INT DEFAULT 70;
+      ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT FALSE;
 
       CREATE TABLE IF NOT EXISTS recovery_logs (
         id SERIAL PRIMARY KEY,
@@ -118,17 +139,17 @@ export const db = {
       if (check.rows.length > 0) return check.rows[0];
       const res = await pool.query(
         `INSERT INTO users (id, name, email, auth_provider, avatar, tier, onboarding_completed)
-         VALUES ($1, $2, $3, 'email', 'AT', 'FITAI ATHLETE', FALSE)
+         VALUES ($1, $2, $3, 'email', 'FA', 'FITAI PRO MEMBER', FALSE)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
          RETURNING *`,
-        [id, `Athlete ${id}`, `user_${id}_${Date.now()}@fitai.test`]
+        [id, `FitAI Member ${id}`, `user_${id}_${Date.now()}@fitai.pro`]
       );
       await pool.query(`SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))`).catch(() => {});
       return res.rows[0];
     }
     let u = memoryDb.users.find(m => m.id === id);
     if (!u) {
-      u = { id, name: `Athlete ${id}`, email: `user_${id}@fitai.test`, avatar: 'AT', tier: 'FITAI ATHLETE', onboarding_completed: false };
+      u = { id, name: `FitAI Member ${id}`, email: `user_${id}@fitai.pro`, avatar: 'FA', tier: 'FITAI PRO MEMBER', onboarding_completed: false };
       memoryDb.users.push(u);
     }
     return u;
@@ -226,14 +247,17 @@ export const db = {
     }
 
     let user = memoryDb.users.find(u => u.id === userId) || memoryDb.users[memoryDb.users.length - 1];
+    const computedName = (name && name.trim() && !name.toLowerCase().includes('athlete'))
+      ? name.trim()
+      : (user?.name && !user.name.toLowerCase().includes('athlete') ? user.name : 'FitAI Member');
     if (!user) {
-      user = { id: 1, name: name || 'Athlete', email: 'athlete@fitai.pro', avatar: (name || 'AT').slice(0, 2).toUpperCase() };
+      user = { id: 1, name: computedName, email: 'user@fitai.pro', avatar: computedName.slice(0, 2).toUpperCase() };
       memoryDb.users.push(user);
     }
 
     Object.assign(user, {
-      name: name || user.name || 'Athlete',
-      avatar: (name || user.name || 'AT').slice(0, 2).toUpperCase(),
+      name: computedName,
+      avatar: computedName.slice(0, 2).toUpperCase(),
       age: age ? parseInt(age, 10) : 25,
       height_cm: heightCm ? parseFloat(heightCm) : 175,
       weight_kg: weightKg ? parseFloat(weightKg) : 70,
@@ -364,12 +388,7 @@ export const db = {
     const id = typeof exerciseId === 'number' ? exerciseId : (parseInt(String(exerciseId), 10) || 1);
     if (postgresActive) {
       const res = await pool.query(
-        `
-        UPDATE exercises
-        SET completed_sets = $1
-        WHERE id = $2
-        RETURNING *
-      `,
+        `UPDATE exercises SET completed_sets = $1 WHERE id = $2 RETURNING *`,
         [completedSets, id]
       );
       return res.rows[0] || null;
@@ -377,6 +396,105 @@ export const db = {
     const ex = memoryDb.exercises.find(e => e.id === id);
     if (ex) ex.completed_sets = completedSets;
     return ex || null;
+  },
+
+  async toggleExerciseCompletion(exerciseId: number | string, isCompleted: boolean): Promise<any> {
+    const id = typeof exerciseId === 'number' ? exerciseId : (parseInt(String(exerciseId), 10) || 1);
+    if (postgresActive) {
+      const res = await pool.query(
+        `UPDATE exercises SET is_completed = $1, completed_sets = CASE WHEN $1 THEN sets ELSE 0 END WHERE id = $2 RETURNING *`,
+        [isCompleted, id]
+      );
+      return res.rows[0] || null;
+    }
+    const ex = memoryDb.exercises.find(e => e.id === id);
+    if (ex) { ex.is_completed = isCompleted; ex.completed_sets = isCompleted ? ex.sets : 0; }
+    return ex || null;
+  },
+
+  async getTodayWorkout(userId: number = 1): Promise<any> {
+    const today = new Date().toISOString().split('T')[0];
+    if (postgresActive) {
+      const wRes = await pool.query(
+        `SELECT * FROM workouts WHERE user_id = $1 AND session_date = $2 ORDER BY id DESC LIMIT 1`,
+        [userId, today]
+      );
+      if (wRes.rows.length === 0) return null;
+      const workout = wRes.rows[0];
+      const eRes = await pool.query('SELECT * FROM exercises WHERE workout_id = $1 ORDER BY id ASC', [workout.id]);
+      return { ...workout, exercises: eRes.rows };
+    }
+    return memoryDb.workouts.find(w => w.user_id === userId && w.session_date === today) || null;
+  },
+
+  async markMissedWorkoutsBeforeToday(userId: number = 1): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    if (postgresActive) {
+      await pool.query(
+        `UPDATE workouts SET status = 'missed' WHERE user_id = $1 AND session_date < $2 AND status = 'pending'`,
+        [userId, today]
+      );
+    } else {
+      memoryDb.workouts.forEach(w => {
+        if (w.user_id === userId && w.session_date < today && w.status === 'pending') w.status = 'missed';
+      });
+    }
+  },
+
+  async markWorkoutComplete(workoutId: number, feedback: { energy: number; soreness: number; mood: number; notes?: string }): Promise<any> {
+    if (postgresActive) {
+      const res = await pool.query(
+        `UPDATE workouts
+         SET status = 'completed', completed_at = NOW(),
+             feedback_energy = $2, feedback_soreness = $3, feedback_mood = $4, feedback_notes = $5
+         WHERE id = $1 RETURNING *`,
+        [workoutId, feedback.energy, feedback.soreness, feedback.mood, feedback.notes || '']
+      );
+      return res.rows[0] || null;
+    }
+    const w = memoryDb.workouts.find(w => w.id === workoutId);
+    if (w) { Object.assign(w, { status: 'completed', completed_at: new Date(), ...feedback }); }
+    return w || null;
+  },
+
+  async markWorkoutMissed(workoutId: number): Promise<any> {
+    if (postgresActive) {
+      const res = await pool.query(
+        `UPDATE workouts SET status = 'missed' WHERE id = $1 RETURNING *`,
+        [workoutId]
+      );
+      return res.rows[0] || null;
+    }
+    const w = memoryDb.workouts.find(w => w.id === workoutId);
+    if (w) w.status = 'missed';
+    return w || null;
+  },
+
+  async getWorkoutStreak(userId: number = 1, days: number = 7): Promise<any[]> {
+    const result: any[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      result.push({ date: dateStr, status: 'none' });
+    }
+    if (postgresActive) {
+      const startDate = result[0].date;
+      const rows = await pool.query(
+        `SELECT session_date::text as date, status FROM workouts WHERE user_id = $1 AND session_date >= $2 ORDER BY session_date ASC`,
+        [userId, startDate]
+      );
+      rows.rows.forEach((row: any) => {
+        const slot = result.find(r => r.date === row.date);
+        if (slot) slot.status = row.status || 'pending';
+      });
+    } else {
+      memoryDb.workouts.filter(w => w.user_id === userId).forEach(w => {
+        const slot = result.find(r => r.date === w.session_date);
+        if (slot) slot.status = w.status || 'pending';
+      });
+    }
+    return result;
   },
 
   async saveRecoveryLog(userId: number = 1, logData: any): Promise<any> {

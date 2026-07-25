@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { db } from '../core/database';
 import { getNextGroqClient, config } from '../core/config';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
+import { generateGroceryPlan } from '../services/groceryOptimizer';
 
 const router = Router();
 
@@ -14,7 +15,6 @@ router.get('/plan', authenticateToken, async (req: AuthenticatedRequest, res: Re
     const goal = user?.goal || 'Muscle Gain';
     const dietPref = user?.diet_pref || 'High Protein Non-Veg';
 
-    // Calculate baseline targets
     const proteinTarget = Math.round(weight * 2.2);
     const caloriesTarget = Math.round(weight * 32);
     const carbsTarget = Math.round((caloriesTarget * 0.45) / 4);
@@ -71,7 +71,7 @@ router.get('/plan', authenticateToken, async (req: AuthenticatedRequest, res: Re
           meals = parsed.meals;
         }
       } catch (e) {
-        // Fall back to baseline calculated meals
+        // Fall back to calculated meals
       }
     }
 
@@ -96,59 +96,17 @@ router.get('/plan', authenticateToken, async (req: AuthenticatedRequest, res: Re
   }
 });
 
-router.get('/grocery', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+// Features 14 & 15: Budget Meal Planner & AI Grocery Generator
+router.post('/grocery-optimize', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId || 1;
     const user = await db.getUser(userId);
 
-    const dietPref = user?.diet_pref || 'High Protein';
-    const { client } = getNextGroqClient();
+    const weeklyBudgetUsd = typeof req.body.budgetUsd === 'number' ? req.body.budgetUsd : 60;
+    const dietPref = req.body.dietPref || user?.diet_pref || 'High Protein Non-Veg';
 
-    let items = [
-      { name: 'Boneless Chicken Breast / Tofu', qty: '1.5 kg', estCost: '$14.00' },
-      { name: 'Liquid Egg Whites & Eggs', qty: '2 Dozen', estCost: '$6.80' },
-      { name: 'Rolled Oats & Chia Seeds', qty: '1 Bag', estCost: '$4.20' },
-      { name: 'Greek Yogurt (0% Fat)', qty: '2 Tubs', estCost: '$8.00' },
-      { name: 'Jasmine Rice & Sweet Potatoes', qty: '2 kg', estCost: '$6.00' },
-      { name: 'Spinach, Broccoli & Avocados', qty: 'Fresh Pack', estCost: '$8.00' },
-    ];
-    let totalEstCost = '$47.00';
-
-    if (client) {
-      try {
-        const sysPrompt = `You are FitAI Pro Grocery Optimizer. Generate a weekly grocery list optimized for cost and ingredient reuse. Respond strictly in JSON:
-{
-  "totalEstCost": string,
-  "items": [
-    { "name": string, "qty": string, "estCost": string }
-  ]
-}`;
-        const userPrompt = `Create a weekly grocery shopping list for a user with diet preference "${dietPref}".`;
-
-        const groqRes = await client.chat.completions.create({
-          messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
-          model: config.defaultModel,
-          temperature: 0.7,
-          response_format: { type: 'json_object' },
-        });
-
-        const parsed = JSON.parse(groqRes.choices[0]?.message?.content || '{}');
-        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-          items = parsed.items;
-          if (parsed.totalEstCost) totalEstCost = parsed.totalEstCost;
-        }
-      } catch (e) {
-        // Fall back to baseline list
-      }
-    }
-
-    res.json({
-      success: true,
-      data: {
-        totalEstCost,
-        items,
-      },
-    });
+    const plan = generateGroceryPlan(weeklyBudgetUsd, dietPref);
+    res.json({ success: true, data: plan });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

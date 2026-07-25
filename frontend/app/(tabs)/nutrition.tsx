@@ -80,8 +80,8 @@ export default function NutritionScreen() {
         {/* Top Header */}
         <View style={styles.topbar}>
           <View>
-            <Text style={styles.kicker}>BUDGET & MACRO ENGINE</Text>
-            <Text style={styles.title}>AI Nutrition Planner</Text>
+            <Text style={styles.kicker}>NUTRITION & MACROS</Text>
+            <Text style={styles.title}>Nutrition Planner</Text>
           </View>
           <TouchableOpacity
             style={styles.groceryBtn}

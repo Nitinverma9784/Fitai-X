@@ -162,7 +162,6 @@ export default function AuthScreen() {
         {/* Brand Header */}
         <View style={styles.brandBox}>
           <Image source={logoImg} style={{ width: 180, height: 75, resizeMode: 'contain' }} />
-          <Text style={styles.brandSubtitle}>INTELLIGENT HYPERTROPHY & BIO-RECOVERY</Text>
         </View>
 
         {/* Auth Card */}

@@ -18,14 +18,12 @@ function getRedirectUri(req: Request): string {
   const port = hostHeader.split(':')[1] || '5000';
   const protocol = req.protocol || 'http';
 
-  // If host is a raw IPv4 (e.g. 192.168.1.37), append .nip.io so Google accepts it as a valid domain and mobile DNS resolves to PC
   const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
   const domain = isIp ? `${hostname}.nip.io` : hostname;
 
   return `${protocol}://${domain}:${port}/api/auth/google/callback`;
 }
 
-// Helper: build response with isOnboarded flag
 function authResponse(user: any, token: string) {
   return {
     success: true,
@@ -35,68 +33,86 @@ function authResponse(user: any, token: string) {
   };
 }
 
-/**
- * GET /api/auth/google/url
- * Returns the Google OAuth authorization URL for frontend to redirect to
- */
-router.get('/google/url', (req: Request, res: Response) => {
-  const returnUrl = (req.query.returnUrl as string) || '';
-  const redirectUri = getRedirectUri(req);
-  console.log('🔑 Initiating Google OAuth with redirect_uri:', redirectUri);
-  const state = returnUrl ? Buffer.from(returnUrl).toString('base64') : '';
-
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'openid email profile',
-    access_type: 'offline',
-    prompt: 'consent select_account',
-    state,
-  });
-
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  res.json({ url });
-});
-
-function buildFrontendRedirectUrl(baseUrl: string, defaultPath: string, params: Record<string, string>): string {
-  let target = baseUrl;
-  if (!target.includes('/auth/success') && !target.includes('/auth')) {
-    target = target.replace(/\/+$/, '') + defaultPath;
+function deriveDisplayName(name?: string, email?: string): string {
+  if (name && name.trim() && !name.toLowerCase().includes('athlete')) {
+    return name.trim();
   }
-  const search = new URLSearchParams(params).toString();
-  const sep = target.includes('?') ? '&' : '?';
-  return `${target}${sep}${search}`;
+  if (email && email.includes('@')) {
+    const handle = email.split('@')[0];
+    const cleaned = handle.replace(/[._\-+]/g, ' ').trim();
+    if (cleaned.length > 0) {
+      return cleaned
+        .split(' ')
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+  return 'FitAI Member';
+}
+
+function buildFrontendRedirectUrl(baseFrontendUrl: string, targetPath: string, params: Record<string, string>): string {
+  const isWeb = baseFrontendUrl.startsWith('http://localhost') || baseFrontendUrl.startsWith('http://127.0.0.1');
+  
+  if (isWeb) {
+    const url = new URL(targetPath, baseFrontendUrl.endsWith('/') ? baseFrontendUrl : baseFrontendUrl + '/');
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    return url.toString();
+  }
+
+  const query = new URLSearchParams(params).toString();
+  return `${baseFrontendUrl}?${query}`;
 }
 
 /**
+ * GET /api/auth/google/url
+ */
+router.get('/google/url', (req: Request, res: Response) => {
+  const redirectUri = getRedirectUri(req);
+  const clientReturnUrl = (req.query.returnUrl as string) || `${FRONTEND_URL}/auth/success`;
+
+  const state = JSON.stringify({ returnUrl: clientReturnUrl });
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent('openid email profile')}` +
+    `&access_type=offline` +
+    `&prompt=consent` +
+    `&state=${encodeURIComponent(state)}`;
+
+  res.json({ url: authUrl, redirectUri });
+});
+
+/**
  * GET /api/auth/google/callback
- * Google redirects here after user authenticates.
  */
 router.get('/google/callback', async (req: Request, res: Response) => {
-  const { code, error, state } = req.query;
-  const redirectUri = getRedirectUri(req);
-
-  let clientFrontendUrl = FRONTEND_URL;
-  if (state) {
-    try {
-      const decoded = Buffer.from(state as string, 'base64').toString('utf-8');
-      if (decoded.includes('://')) {
-        clientFrontendUrl = decoded;
-      }
-    } catch {}
+  let clientFrontendUrl = `${FRONTEND_URL}/auth/success`;
+  try {
+    const stateStr = req.query.state as string;
+    if (stateStr) {
+      const parsedState = JSON.parse(stateStr);
+      if (parsedState.returnUrl) clientFrontendUrl = parsedState.returnUrl;
+    }
+  } catch (e) {
+    // Keep default
   }
 
-  if (error || !code) {
-    const cancelUrl = buildFrontendRedirectUrl(
+  const code = req.query.code;
+  if (!code) {
+    const errUrl = buildFrontendRedirectUrl(
       clientFrontendUrl.replace(/\/auth\/success$/, '/auth'),
       '/auth',
-      { error: 'google_cancelled' }
+      { error: 'no_code_provided' }
     );
-    return res.redirect(cancelUrl);
+    return res.redirect(errUrl);
   }
 
   try {
+    const redirectUri = getRedirectUri(req);
+
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -125,9 +141,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     });
     const userInfo = (await userInfoRes.json()) as any;
 
-    const email: string = userInfo.email || 'google.athlete@fitai.pro';
-    const name: string = userInfo.name || userInfo.given_name || 'Google Athlete';
-    const avatar: string = userInfo.picture || (name.slice(0, 2) || 'GA').toUpperCase();
+    const email: string = userInfo.email || 'user@fitai.pro';
+    const rawName: string = userInfo.name || userInfo.given_name || '';
+    const name: string = deriveDisplayName(rawName, email);
+    const avatar: string = userInfo.picture || name.slice(0, 2).toUpperCase();
 
     const existingUser = await db.getUserByEmail(email);
     if (existingUser && existingUser.auth_provider === 'email') {
@@ -167,10 +184,11 @@ router.get('/google/callback', async (req: Request, res: Response) => {
  */
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { name = 'Athlete', email, password = '' } = req.body;
+    const { name: reqName, email, password = '' } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, error: 'Email address is required.' });
     }
+    const name = deriveDisplayName(reqName, email);
 
     const existingUser = await db.getUserByEmail(email);
     if (existingUser) {
@@ -232,9 +250,10 @@ router.post('/login', async (req: Request, res: Response) => {
     let user = existingUser;
     if (!user) {
       const passwordHash = password ? hashPassword(password) : undefined;
+      const derivedName = deriveDisplayName(undefined, email);
       user = await db.createUser({
-        name: 'Athlete',
-        email: email || 'athlete@fitai.pro',
+        name: derivedName,
+        email: email || 'user@fitai.pro',
         provider: 'email',
         passwordHash,
       });

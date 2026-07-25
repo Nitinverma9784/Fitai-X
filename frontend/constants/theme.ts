@@ -23,8 +23,15 @@ export const Colors = {
   // Neutral Typography & Borders
   text: '#FFFFFF',
   text2: '#B0AA9A',
+  textBright: '#F8FAFC',
+  textDim: '#CBD5E1',
+  textMuted: '#94A3B8',
   border: 'rgba(255, 214, 10, 0.09)',
   borderLight: 'rgba(255, 214, 10, 0.18)',
+  
+  // Custom Accents
+  accentBlue: '#38BDF8',
+  accentOrange: '#F97316',
   
   // Gradients (for linear gradient usage)
   gradients: {
@@ -56,6 +63,7 @@ export const Colors = {
 };
 
 export const Radii = {
+  xs: 6,
   sm: 10,
   md: 14,
   lg: 18,
