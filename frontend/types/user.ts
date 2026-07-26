@@ -8,6 +8,7 @@ export interface UserProfile {
   email: string;
   avatar: string;
   tier: string;
+  gender?: string;
   goal?: string;
   weight_kg?: number;
   height_cm?: number;
@@ -72,6 +73,16 @@ export interface WorkoutExerciseItem {
   icon?: string;
   tip?: string;
   targetMuscle?: string;
+  target_muscle?: string;
+  video_url?: string;
+  videoUrl?: string;
+  image_url?: string;
+  imageUrl?: string;
+  steps?: string[];
+  bodymap_male?: string;
+  bodymap_female?: string;
+  bodymap_url?: string;
+  bodymapUrl?: string;
   is_completed?: boolean;
   completed_sets?: number;
 }

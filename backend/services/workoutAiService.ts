@@ -1,7 +1,9 @@
 import { getNextGroqClient, config } from '../core/config';
+import { fetchExerciseDbDetails } from './exerciseDbService';
 
 export interface WorkoutGenerationContext {
   userName: string;
+  gender?: string;
   goal: string;
   weightKg: number;
   equipment: string;
@@ -22,6 +24,23 @@ export interface WorkoutGenerationContext {
     notes?: string;
   };
   recoveryScore?: number;
+  userExerciseLogs?: Array<{
+    exercise_name: string;
+    weight_kg: number;
+    bar_weight_kg?: number;
+    plate_weight_kg?: number;
+    reps_achieved: number;
+    is_bodyweight: boolean;
+  }>;
+  previousDaySummary?: {
+    date: string;
+    sleepHours: number;
+    sleepEfficiency: number;
+    hrvMs: number;
+    soreness: string;
+    readinessPercentage: number;
+    workoutTitle?: string;
+  };
 }
 
 export interface GeneratedExercise {
@@ -32,6 +51,9 @@ export interface GeneratedExercise {
   icon: string;
   tip: string;
   targetMuscle: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  steps?: string[];
 }
 
 export interface AdaptiveWorkoutPlan {
@@ -48,13 +70,81 @@ export interface AdaptiveWorkoutPlan {
   analysisSteps: string[];
 }
 
+// 100% VERIFIED EXERCISES CATEGORIZED BY EQUIPMENT
+const VERIFIED_BODYWEIGHT_EXERCISES = [
+  'Push-up', 'Clap Push Up', 'Diamond Push up', 'Wide Hand Push up', 'Incline Push-up',
+  'Pull-up', 'Chin-ups', 'Suspended Row',
+  'Squat', 'Bulgarian Split Squat', 'Single Leg Squat', 'Jump Squat', 'Reverse Lunge', 'Walking Lunge', 'Standing Calf Raise',
+  'Triceps Dip', 'Triceps Press',
+  'Elbow Up and Down Dynamic Plank', 'Side Lunge'
+];
+
+const VERIFIED_DUMBBELL_EXERCISES = [
+  ...VERIFIED_BODYWEIGHT_EXERCISES,
+  'Bench Press', 'Palms In Incline Bench Press',
+  'Dumbbell One Arm Bent-over Row', 'Romanian Deadlift',
+  'Seated Shoulder Press', 'Arnold Press', 'Lateral Raise', 'Dumbbell Clean and Press',
+  'Goblet Squat', 'Dumbbell Single Leg Calf Raise',
+  'Hammer Curl', 'Biceps Leg Concentration Curl',
+  'Dumbbell Lying Floor Skull Crusher'
+];
+
+const VERIFIED_FULL_GYM_EXERCISES = [
+  ...VERIFIED_DUMBBELL_EXERCISES
+];
+
+function getEquipmentCategory(equipmentStr: string): 'bodyweight' | 'dumbbell' | 'full' {
+  const eq = (equipmentStr || '').toLowerCase();
+  if (eq.includes('bodyweight') || eq.includes('no equipment') || eq.includes('hotel')) {
+    return 'bodyweight';
+  }
+  if (eq.includes('home') || eq.includes('dumbbell') || eq.includes('band')) {
+    return 'dumbbell';
+  }
+  return 'full';
+}
+
+function getTimeBasedConfig(timeStr: string, lowEnergy = false, highSoreness = false): { targetExercises: number; durationMinutes: number; estimatedCalories: number } {
+  const digits = timeStr ? timeStr.match(/\d+/) : null;
+  const mins = digits ? parseInt(digits[0], 10) : 45;
+
+  let targetExercises = 5;
+  let durationMinutes = mins;
+
+  if (mins <= 20) {
+    targetExercises = 3;
+    durationMinutes = Math.min(mins, 20);
+  } else if (mins <= 35) {
+    targetExercises = 4;
+    durationMinutes = Math.min(mins, 30);
+  } else if (mins <= 50) {
+    targetExercises = 5;
+    durationMinutes = Math.min(mins, 45);
+  } else {
+    targetExercises = 6;
+    durationMinutes = Math.min(mins, 60);
+  }
+
+  if (lowEnergy || highSoreness) {
+    targetExercises = Math.max(3, targetExercises - 1);
+    durationMinutes = Math.max(20, durationMinutes - 10);
+  }
+
+  const estimatedCalories = Math.round(durationMinutes * 8.5);
+
+  return { targetExercises, durationMinutes, estimatedCalories };
+}
+
 function buildAdaptivePrompt(ctx: WorkoutGenerationContext): string {
   const isFirstDay = ctx.dayNumber === 0;
+  const isOneWeekAdaptation = ctx.dayNumber >= 7;
   const hasMissedDays = ctx.missedDaysCount > 0;
   const hasFeedback = !!ctx.lastFeedback;
   const highSoreness = hasFeedback && ctx.lastFeedback!.soreness >= 4;
   const lowEnergy = hasFeedback && ctx.lastFeedback!.energy <= 2;
   const highEnergy = hasFeedback && ctx.lastFeedback!.energy >= 4;
+
+  const { targetExercises, durationMinutes } = getTimeBasedConfig(ctx.timeCommitment, lowEnergy, highSoreness);
 
   let contextBlock = '';
 
@@ -74,260 +164,225 @@ function buildAdaptivePrompt(ctx: WorkoutGenerationContext): string {
         contextBlock += `User Feedback Notes: "${ctx.lastFeedback!.notes}". Address this note directly in exercise selection and reasoning! `;
       }
     }
+    if (isOneWeekAdaptation) {
+      contextBlock += `1-WEEK AUTOMATIC INTENSITY ESCALATION: User completed a 1-week training block baseline. Auto-increase working intensity (+2.5kg or +1 set) and document this 1-week progressive overload adaptation explicitly in aiReasoning! `;
+    }
     if (highSoreness) {
       contextBlock += `HIGH SORENESS (${ctx.lastFeedback!.soreness}/5) REPORTED: Lower total sets per exercise (2-3 max), extend rest periods to 75-90s, avoid heavy axial loading. `;
     }
     if (lowEnergy) {
-      contextBlock += `LOW ENERGY (${ctx.lastFeedback!.energy}/5) REPORTED: Keep session concise (30 mins), 3-4 exercises max, moderate effort only. `;
+      contextBlock += `LOW ENERGY (${ctx.lastFeedback!.energy}/5) REPORTED: Keep session concise (${durationMinutes} mins), 3-4 exercises max, moderate effort only. `;
     }
     if (highEnergy && !highSoreness) {
       contextBlock += `HIGH ENERGY (${ctx.lastFeedback!.energy}/5) REPORTED: Optimize progressive overload (+1 set or higher intensity) for maximum growth. `;
     }
   }
 
-  const equipmentMap: Record<string, string> = {
-    'Commercial Gym': 'Full gym equipment: barbells, dumbbells, cables, machines',
-    'Home Gym': 'Dumbbells, resistance bands, pull-up bar',
-    'Bodyweight Only': 'No equipment — bodyweight exercises only',
-    'Hotel Room': 'Bodyweight movements, dumbbells if available',
-  };
-  const equipmentDesc = equipmentMap[ctx.equipment] || ctx.equipment;
+  const prevSummaryBlock = ctx.previousDaySummary
+    ? `PREVIOUS DAY RECOVERY & PERFORMANCE SUMMARY (${ctx.previousDaySummary.date}):
+- Logged Sleep: ${ctx.previousDaySummary.sleepHours} hrs (${ctx.previousDaySummary.sleepEfficiency}% efficiency)
+- Wearable HRV: ${ctx.previousDaySummary.hrvMs} ms
+- Muscle Soreness: ${ctx.previousDaySummary.soreness}
+- Calculated Bio-Readiness: ${ctx.previousDaySummary.readinessPercentage}%
+- Previous Workout: ${ctx.previousDaySummary.workoutTitle || 'None'}
+ADAPTATION DIRECTIVE: Calculate today's workload based on this exact summary! If previous day readiness < 75% or sleep < 6.5h, lower total volume by 15-20% and prioritize recovery.`
+    : '';
+
+  const logsBlock = ctx.userExerciseLogs && ctx.userExerciseLogs.length > 0
+    ? `USER RECORDED EXERCISE LOGS & PERFORMANCE:
+${ctx.userExerciseLogs.map(l => l.is_bodyweight ? `- "${l.exercise_name}": ${l.reps_achieved} bodyweight reps max` : `- "${l.exercise_name}": ${l.weight_kg}kg total weight (${l.bar_weight_kg ? l.bar_weight_kg + 'kg bar + ' + l.plate_weight_kg + 'kg plates' : 'weight'}) × ${l.reps_achieved} reps`).join('\n')}
+PROGRESSIVE OVERLOAD DIRECTIVE: Automatically scale working weight or target rep ranges based on these recorded numbers!`
+    : '';
+
+  const eqCat = getEquipmentCategory(ctx.equipment);
+  let allowedList = VERIFIED_FULL_GYM_EXERCISES;
+  let equipmentConstraintNote = '';
+
+  if (eqCat === 'bodyweight') {
+    allowedList = VERIFIED_BODYWEIGHT_EXERCISES;
+    equipmentConstraintNote = `STRICT EQUIPMENT MANDATE: User selected BODYWEIGHT ONLY. You MUST select ONLY bodyweight exercises (Push-up, Pull-up, Squat, Triceps Dip, Bulgarian Split Squat, Plank, etc.). Absolutely NO barbells, dumbbells, or heavy gym equipment!`;
+  } else if (eqCat === 'dumbbell') {
+    allowedList = VERIFIED_DUMBBELL_EXERCISES;
+    equipmentConstraintNote = `EQUIPMENT MANDATE: User selected HOME GYM / DUMBBELLS. Select dumbbells or bodyweight exercises (Dumbbell Row, Seated Shoulder Press, Goblet Squat, Push-up, Hammer Curl, etc.).`;
+  } else {
+    equipmentConstraintNote = `EQUIPMENT MANDATE: Commercial Gym access — barbells, dumbbells, machines, and bodyweight exercises.`;
+  }
+
   const injuryBlock = ctx.injuries && ctx.injuries.length > 0 && ctx.injuries[0] !== 'None'
-    ? `AVOID EXERCISES STRESSING: ${ctx.injuries.join(', ')}. ` : '';
+    ? `INJURY RESTRICTIONS: User has injuries/limitations: [${ctx.injuries.join(', ')}]. AVOID any exercises stressing these joint/muscle areas! ` : '';
 
   return `You are FitAI Pro, an elite strength & conditioning AI coach. Generate a dynamic JSON workout plan based strictly on these parameters:
 
 User: ${ctx.userName}
 Goal: ${ctx.goal}
 Weight: ${ctx.weightKg}kg
-Equipment: ${equipmentDesc}
-${injuryBlock}Time Available: ${ctx.timeCommitment || '45 mins'}
+Equipment: ${ctx.equipment}
+${equipmentConstraintNote}
+${injuryBlock}Time Selection (Onboarding): ${ctx.timeCommitment || '45 mins'} -> Target Duration: ${durationMinutes} mins
 Session #${ctx.dayNumber + 1}
+
+ALLOWED VERIFIED EXERCISES (Select ONLY from this list to guarantee 100% video demo matching):
+${allowedList.map(e => `"${e}"`).join(', ')}
+
+${logsBlock}
 
 ADAPTIVE CONTEXT & FEEDBACK:
 ${contextBlock}
 
+CRITICAL MANDATES:
+1. EXERCISE COUNT: User selected ${ctx.timeCommitment} in onboarding (${durationMinutes} mins target duration). Generate EXACTLY ${targetExercises} exercises in the exercises array (no more, no less).
+2. EQUIPMENT MATCHING: Select exercise names ONLY from the ALLOWED VERIFIED EXERCISES list above matching ${ctx.equipment}.
+
 Return ONLY valid JSON in this exact structure (no markdown fences, no text outside JSON):
 {
   "title": "Short descriptive workout title",
-  "durationMinutes": 45,
+  "durationMinutes": ${durationMinutes},
   "estimatedCalories": 380,
-  "targetMuscles": ["Back", "Biceps"],
-  "whyRecommendation": "One clear sentence explaining why this workout is assigned today based on yesterday's work and recovery",
-  "aiReasoning": "2-3 sentences detailing how yesterday's feedback (Energy, Soreness, Notes) shaped today's exercise selection",
+  "targetMuscles": ["Chest", "Triceps"],
+  "whyRecommendation": "One clear sentence explaining why this ${durationMinutes}-minute workout is assigned today based on onboarding time (${ctx.timeCommitment}) and equipment (${ctx.equipment})",
+  "aiReasoning": "2-3 sentences detailing how onboarding time (${ctx.timeCommitment}), recorded weight/rep logs, and 1-week adaptation shaped today's ${targetExercises}-exercise routine",
   "readinessScore": 82,
-  "commitMessage": "feat: adaptive pull session following push day",
+  "commitMessage": "feat: adaptive ${ctx.equipment} session (${durationMinutes}m)",
   "adaptations": [
-    "Rotated target from Chest to Back & Biceps for 100% recovery",
-    "Energy (4/5) -> Maintained 4 working sets on primary compound move"
+    "Matched exercises strictly to onboarding equipment (${ctx.equipment})",
+    "Set exercise count (${targetExercises} exercises) based on onboarding time selection (${ctx.timeCommitment})"
   ],
   "analysisSteps": [
-    "Step 1: Evaluated previous session history and feedback scores",
-    "Step 2: Calculated target muscle readiness and recovery index",
-    "Step 3: Selected optimal exercise split for available equipment",
-    "Step 4: Applied volume & intensity micro-adjustments"
+    "Step 1: Analyzed onboarding parameters (equipment: ${ctx.equipment}, time: ${ctx.timeCommitment})",
+    "Step 2: Calculated target exercise count (${targetExercises} exercises for ${durationMinutes}m duration)",
+    "Step 3: Applied recorded weight/rep performance logs for progressive overload",
+    "Step 4: Filtered exercises matching exact equipment availability"
   ],
   "exercises": [
     {
-      "name": "Lat Pulldown",
+      "name": "${allowedList[0]}",
       "sets": 4,
       "reps": "10-12",
       "restSec": 60,
       "icon": "dumbbell",
-      "tip": "Pull through the elbows, keep chest high.",
-      "targetMuscle": "Back"
+      "tip": "Proper posture and controlled tempo.",
+      "targetMuscle": "Chest"
     }
   ]
 }
 
-Generate 4 to 5 tailored exercises. Icon choices: dumbbell, activity, zap, target, heart, flame, shield, clock.`;
+Generate EXACTLY ${targetExercises} tailored exercises. Icon choices: dumbbell, activity, zap, target, heart, flame, shield, clock.`;
 }
 
-function generateFallbackWorkout(ctx: WorkoutGenerationContext): AdaptiveWorkoutPlan {
-  const isFirstDay = ctx.dayNumber === 0;
-  const hasMissedDays = ctx.missedDaysCount > 0;
-  const lastMuscles = (ctx.lastWorkout?.targetMuscles || []).map(m => m.toLowerCase());
-  const energy = ctx.lastFeedback?.energy ?? 3;
-  const soreness = ctx.lastFeedback?.soreness ?? 3;
-  const highSoreness = soreness >= 4;
-  const lowEnergy = energy <= 2;
-  const highEnergy = energy >= 4;
+export async function generateAdaptiveWorkoutWithGroq(
+  ctx: WorkoutGenerationContext
+): Promise<AdaptiveWorkoutPlan> {
+  const prompt = buildAdaptivePrompt(ctx);
+  let resultPlan: AdaptiveWorkoutPlan | null = null;
+  const hasFeedback = !!ctx.lastFeedback;
+  const highSoreness = hasFeedback && ctx.lastFeedback!.soreness >= 4;
+  const lowEnergy = hasFeedback && ctx.lastFeedback!.energy <= 2;
 
-  // Smart split rotation logic based on previous session's target muscles
-  let targetGroup = 'Full Body';
-  if (!isFirstDay) {
-    const isLastChest = lastMuscles.some(m => m.includes('chest') || m.includes('push') || m.includes('triceps'));
-    const isLastBack = lastMuscles.some(m => m.includes('back') || m.includes('pull') || m.includes('biceps'));
-    const isLastLegs = lastMuscles.some(m => m.includes('leg') || m.includes('quad') || m.includes('glute') || m.includes('lower'));
+  const { targetExercises, durationMinutes, estimatedCalories } = getTimeBasedConfig(ctx.timeCommitment, lowEnergy, highSoreness);
 
-    if (isLastChest) {
-      targetGroup = 'Back & Biceps';
-    } else if (isLastBack) {
-      targetGroup = 'Legs & Glutes';
-    } else if (isLastLegs) {
-      targetGroup = 'Shoulders & Arms';
+  const { client, totalKeys } = require('../core/config').getNextGroqClient();
+  if (!client || totalKeys === 0) {
+    throw new Error('Groq AI API key is missing or invalid in backend configuration. Please add a valid GROQ_API_KEY_1 to .env.');
+  }
+
+  try {
+    console.log(`🤖 Calling Groq AI engine for dynamic adaptive workout generation (${ctx.equipment}, ${ctx.timeCommitment})...`);
+    const completion = await client.chat.completions.create({
+      messages: [
+        { role: 'system', content: 'You are FitAI Pro engine. Generate adaptive workout plans in valid JSON format only.' },
+        { role: 'user', content: prompt },
+      ],
+      model: config.defaultModel,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (content) {
+      resultPlan = JSON.parse(content);
+    }
+  } catch (err: any) {
+    console.error(`❌ Groq AI generation error: ${err.message}`);
+    throw new Error(`FitAI Engine Error: Unable to generate your AI workout session (${err.message}). Please try again in a moment.`);
+  }
+
+  if (!resultPlan || !resultPlan.exercises || resultPlan.exercises.length === 0) {
+    throw new Error('FitAI Engine Error: The AI service returned an empty workout plan. Please try again.');
+  }
+
+  // Live Enrich & Filter exercises with ExerciseDB V2 API
+  console.log(`🎥 Live enriching & verifying exercises for equipment (${ctx.equipment}) and time target (${targetExercises} exercises)...`);
+
+  const eqCat = getEquipmentCategory(ctx.equipment);
+  const allowedList = eqCat === 'bodyweight'
+    ? VERIFIED_BODYWEIGHT_EXERCISES
+    : eqCat === 'dumbbell'
+    ? VERIFIED_DUMBBELL_EXERCISES
+    : VERIFIED_FULL_GYM_EXERCISES;
+
+  const allowedSet = new Set(allowedList.map(e => e.toLowerCase()));
+  const enrichedExercises: GeneratedExercise[] = [];
+
+  for (const ex of resultPlan.exercises) {
+    const isAllowedByEquipment = allowedSet.has(ex.name.toLowerCase()) || eqCat === 'full';
+    
+    if (!isAllowedByEquipment) {
+      console.warn(`⚠️ AI generated exercise "${ex.name}" which does not match user equipment profile (${ctx.equipment}). Skipping.`);
+      continue;
+    }
+
+    const edbData = await fetchExerciseDbDetails(ex.name);
+    if (edbData.videoUrl) {
+      enrichedExercises.push({
+        ...ex,
+        name: edbData.name || ex.name,
+        videoUrl: edbData.videoUrl,
+        imageUrl: edbData.imageUrl,
+        steps: (edbData.steps && edbData.steps.length > 0) ? edbData.steps : ex.steps,
+        targetMuscle: edbData.targetMuscle || ex.targetMuscle,
+        tip: edbData.tip || ex.tip,
+      });
     } else {
-      // Rotation based on day number
-      const splits = ['Back & Biceps', 'Legs & Glutes', 'Shoulders & Arms', 'Chest & Triceps'];
-      targetGroup = splits[ctx.dayNumber % splits.length];
+      console.warn(`⚠️ Live video verification failed for "${ex.name}". Skipping.`);
+    }
+
+    if (enrichedExercises.length >= targetExercises) break;
+  }
+
+  if (enrichedExercises.length < targetExercises) {
+    console.log(`⚡ Dynamically querying ExerciseDB for equipment-matched exercises (${ctx.equipment}) to reach ${targetExercises} total...`);
+    for (const candidateName of allowedList) {
+      if (enrichedExercises.length >= targetExercises) break;
+      if (!enrichedExercises.some(e => e.name.toLowerCase() === candidateName.toLowerCase())) {
+        const edbData = await fetchExerciseDbDetails(candidateName);
+        if (edbData.videoUrl) {
+          enrichedExercises.push({
+            name: edbData.name,
+            sets: 3,
+            reps: '10-12',
+            restSec: 60,
+            icon: 'dumbbell',
+            tip: edbData.tip || `Perform ${edbData.name} under strict controlled form.`,
+            targetMuscle: edbData.targetMuscle || 'Target Muscle',
+            videoUrl: edbData.videoUrl,
+            imageUrl: edbData.imageUrl,
+            steps: edbData.steps,
+          });
+        }
+      }
     }
   }
 
-  const exerciseCatalog: Record<string, GeneratedExercise[]> = {
-    'Full Body': [
-      { name: 'Goblet Squat', sets: 3, reps: '10-12', restSec: 60, icon: 'dumbbell', tip: 'Brace core, keep chest high.', targetMuscle: 'Legs' },
-      { name: 'Dumbbell Incline Bench Press', sets: 3, reps: '10-12', restSec: 60, icon: 'activity', tip: 'Control the descent for 2s per rep.', targetMuscle: 'Chest' },
-      { name: 'Lat Pulldown', sets: 3, reps: '10-12', restSec: 60, icon: 'dumbbell', tip: 'Drive elbows down towards hips.', targetMuscle: 'Back' },
-      { name: 'Dumbbell Shoulder Press', sets: 3, reps: '10', restSec: 60, icon: 'zap', tip: 'Keep palms facing forward.', targetMuscle: 'Shoulders' },
-    ],
-    'Chest & Triceps': [
-      { name: 'Incline Dumbbell Bench Press', sets: 4, reps: '10-12', restSec: 60, icon: 'dumbbell', tip: 'Focus on upper chest contraction at top.', targetMuscle: 'Chest' },
-      { name: 'Cable Chest Flyes', sets: 3, reps: '12-15', restSec: 45, icon: 'activity', tip: 'Squeeze inner chest at peak contraction.', targetMuscle: 'Chest' },
-      { name: 'Rope Tricep Pushdown', sets: 4, reps: '12-15', restSec: 45, icon: 'zap', tip: 'Spread the rope at bottom of movement.', targetMuscle: 'Triceps' },
-      { name: 'Overhead Dumbbell Extension', sets: 3, reps: '10-12', restSec: 60, icon: 'dumbbell', tip: 'Keep elbows tucked near ears.', targetMuscle: 'Triceps' },
-    ],
-    'Back & Biceps': [
-      { name: 'Lat Pulldown (Wide Grip)', sets: 4, reps: '10-12', restSec: 60, icon: 'dumbbell', tip: 'Pull through elbows to isolate latissimus dorsi.', targetMuscle: 'Back' },
-      { name: 'Seated Cable Row', sets: 4, reps: '10-12', restSec: 60, icon: 'activity', tip: 'Squeeze shoulder blades together for 1s.', targetMuscle: 'Back' },
-      { name: 'Incline Dumbbell Bicep Curl', sets: 3, reps: '10-12', restSec: 45, icon: 'dumbbell', tip: 'Strict form — full stretch at the bottom.', targetMuscle: 'Biceps' },
-      { name: 'EZ-Bar Hammer Curl', sets: 3, reps: '12', restSec: 45, icon: 'zap', tip: 'Targets brachialis for thicker upper arms.', targetMuscle: 'Biceps' },
-    ],
-    'Legs & Glutes': [
-      { name: 'Barbell / Dumbbell Squat', sets: 4, reps: '8-10', restSec: 90, icon: 'dumbbell', tip: 'Break parallel for complete quad and glute engagement.', targetMuscle: 'Legs' },
-      { name: 'Romanian Deadlift (RDL)', sets: 4, reps: '10-12', restSec: 75, icon: 'activity', tip: 'Hinge at hips, maintain soft knee bend.', targetMuscle: 'Hamstrings' },
-      { name: 'Leg Extension Machine', sets: 3, reps: '12-15', restSec: 60, icon: 'zap', tip: 'Hold top extension for 1s peak squeeze.', targetMuscle: 'Quads' },
-      { name: 'Seated Calf Raise', sets: 4, reps: '15-20', restSec: 45, icon: 'target', tip: 'Deep stretch at bottom, explosive drive up.', targetMuscle: 'Calves' },
-    ],
-    'Shoulders & Arms': [
-      { name: 'Overhead Dumbbell Press', sets: 4, reps: '8-10', restSec: 75, icon: 'dumbbell', tip: 'Keep core tight, press straight overhead.', targetMuscle: 'Shoulders' },
-      { name: 'Dumbbell Lateral Raise', sets: 4, reps: '12-15', restSec: 45, icon: 'activity', tip: 'Slight forward lean, lead with elbows.', targetMuscle: 'Shoulders' },
-      { name: 'Preacher Bicep Curl', sets: 3, reps: '10-12', restSec: 45, icon: 'dumbbell', tip: 'Avoid locking out elbows at bottom.', targetMuscle: 'Biceps' },
-      { name: 'Skull Crushers (Lying Tricep)', sets: 3, reps: '10-12', restSec: 60, icon: 'zap', tip: 'Keep upper arms perpendicular to torso.', targetMuscle: 'Triceps' },
-    ],
-  };
-
-  const rawExercises = exerciseCatalog[targetGroup] || exerciseCatalog['Full Body'];
-
-  // Adjust volume & sets dynamically based on feedback
-  const exercises = rawExercises.map(ex => {
-    let sets = ex.sets;
-    let restSec = ex.restSec;
-    if (highSoreness) {
-      sets = Math.max(2, sets - 1);
-      restSec += 25;
-    } else if (highEnergy && !highSoreness) {
-      sets = Math.min(5, sets + 1);
-    }
-    if (lowEnergy) {
-      sets = Math.max(2, sets - 1);
-    }
-    return { ...ex, sets, restSec };
-  });
-
-  const targetMuscles = [...new Set(exercises.map(e => e.targetMuscle))];
-  const duration = isFirstDay ? 35 : lowEnergy ? 30 : 45;
-  const calories = isFirstDay ? 290 : highEnergy ? 440 : 380;
-  const readinessScore = highSoreness ? 58 : lowEnergy ? 62 : highEnergy ? 88 : 78;
-
-  const adaptations: string[] = [];
-  if (isFirstDay) {
-    adaptations.push('First session: Balanced full-body movement patterns');
-  } else if (ctx.lastWorkout) {
-    adaptations.push(`Rotated target group from ${ctx.lastWorkout.targetMuscles.join('/')} to ${targetGroup} for recovery`);
-  }
-  if (ctx.lastFeedback) {
-    if (highSoreness) adaptations.push(`Soreness ${soreness}/5 detected -> Reduced sets & added rest time`);
-    if (lowEnergy) adaptations.push(`Energy ${energy}/5 reported -> Streamlined session duration to 30m`);
-    if (highEnergy) adaptations.push(`Energy ${energy}/5 reported -> Progressive overload volume applied (+1 set)`);
-    if (ctx.lastFeedback.notes) adaptations.push(`User Note addressed: "${ctx.lastFeedback.notes}"`);
-  }
-  if (hasMissedDays) {
-    adaptations.push(`Re-engagement protocol active (${ctx.missedDaysCount} missed day(s))`);
+  if (enrichedExercises.length === 0) {
+    throw new Error(`FitAI Engine Error: Could not load verified exercise videos matching your ${ctx.equipment} equipment. Please check your network or RapidAPI key setup.`);
   }
 
-  const lastSessionTitle = ctx.lastWorkout?.title || 'Previous Session';
-  const whyRecommendation = isFirstDay
-    ? 'Welcome! This introductory session establishes your strength baseline safely.'
-    : `Designed targeting ${targetGroup} while muscles from "${lastSessionTitle}" recover.`;
-
-  const aiReasoning = isFirstDay
-    ? 'First workout generated with moderate intensity and fundamental compound patterns.'
-    : `Based on yesterday's feedback (Energy: ${energy}/5, Soreness: ${soreness}/5), today's focus shifts to ${targetGroup}. Volume and rest intervals have been adjusted accordingly.`;
-
-  const analysisSteps = [
-    `Analyzing Session #${ctx.dayNumber + 1} context & previous workout ("${lastSessionTitle}")`,
-    `Checking feedback: Energy ${energy}/5 • Soreness ${soreness}/5 • Mood ${ctx.lastFeedback?.mood ?? 4}/5`,
-    `Selecting target group: ${targetGroup} (allowing recovery for ${lastMuscles.join('/') || 'prior muscles'})`,
-    `Configuring ${exercises.length} customized exercises for equipment: ${ctx.equipment}`,
-  ];
+  const finalExercises = enrichedExercises.slice(0, targetExercises);
 
   return {
-    title: isFirstDay ? 'Welcome — Full Body Intro' : `${targetGroup} Hypertrophy`,
-    durationMinutes: duration,
-    estimatedCalories: calories,
-    targetMuscles,
-    whyRecommendation,
-    aiReasoning,
-    readinessScore,
-    exercises,
-    commitMessage: isFirstDay ? 'init: first workout session' : `feat: ${targetGroup.toLowerCase().replace(' & ', '-').replace(' ', '-')} session`,
-    adaptations,
-    analysisSteps,
+    ...resultPlan,
+    durationMinutes,
+    estimatedCalories,
+    exercises: finalExercises,
   };
 }
-
-export async function generateAdaptiveWorkoutWithGroq(ctx: WorkoutGenerationContext): Promise<AdaptiveWorkoutPlan> {
-  const { client, keyIndex } = getNextGroqClient();
-
-  if (client) {
-    try {
-      console.log(`🏋️ Generating adaptive workout via Groq key #${keyIndex + 1}`);
-      const prompt = buildAdaptivePrompt(ctx);
-
-      const res = await client.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: config.defaultModel,
-        temperature: 0.7,
-        max_tokens: 1800,
-      });
-
-      const content = res.choices[0]?.message?.content?.trim();
-      if (content) {
-        const clean = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-        const parsed = JSON.parse(clean);
-
-        const fallback = generateFallbackWorkout(ctx);
-
-        return {
-          title: parsed.title || fallback.title,
-          durationMinutes: parsed.durationMinutes || fallback.durationMinutes,
-          estimatedCalories: parsed.estimatedCalories || fallback.estimatedCalories,
-          targetMuscles: parsed.targetMuscles || fallback.targetMuscles,
-          whyRecommendation: parsed.whyRecommendation || fallback.whyRecommendation,
-          aiReasoning: parsed.aiReasoning || fallback.aiReasoning,
-          readinessScore: parsed.readinessScore || fallback.readinessScore,
-          exercises: (parsed.exercises && parsed.exercises.length > 0)
-            ? parsed.exercises.map((e: any) => ({
-                name: e.name,
-                sets: e.sets || 3,
-                reps: e.reps || '10-12',
-                restSec: e.restSec || 60,
-                icon: e.icon || 'dumbbell',
-                tip: e.tip || '',
-                targetMuscle: e.targetMuscle || '',
-              }))
-            : fallback.exercises,
-          commitMessage: parsed.commitMessage || fallback.commitMessage,
-          adaptations: parsed.adaptations || fallback.adaptations,
-          analysisSteps: parsed.analysisSteps || fallback.analysisSteps,
-        };
-      }
-    } catch (err: any) {
-      console.error('Groq workout generation error:', err.message);
-    }
-  }
-
-  console.log('⚡ Using dynamic adaptive fallback workout generator');
-  return generateFallbackWorkout(ctx);
-}
-

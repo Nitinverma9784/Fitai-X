@@ -247,6 +247,8 @@ export const groqService = {
     sleepHours?: number;
     hrv?: number;
     soreness?: string;
+    hydrationL?: number;
+    sleepEfficiency?: number;
   }): Promise<RecoveryInsights | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/recovery/insights`, {

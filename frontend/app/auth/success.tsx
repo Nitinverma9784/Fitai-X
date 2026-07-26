@@ -16,47 +16,44 @@ export default function AuthSuccessScreen() {
   const [message, setMessage] = useState('Completing Google Sign-In...');
 
   useEffect(() => {
-    const token = params.token as string;
-    const name = decodeURIComponent((params.name as string) || 'Athlete');
-    const email = decodeURIComponent((params.email as string) || '');
-    const userId = parseInt(params.userId as string, 10) || 1;
-    const error = params.error as string;
-    const isOnboarded = params.isOnboarded === 'true';
+    const timer = setTimeout(() => {
+      const token = params.token as string;
+      const name = decodeURIComponent((params.name as string) || 'Athlete');
+      const email = decodeURIComponent((params.email as string) || '');
+      const userId = parseInt(params.userId as string, 10) || 1;
+      const error = params.error as string;
+      const isOnboarded = params.isOnboarded === 'true';
 
-    if (error === 'google_cancelled') {
-      router.replace('/auth');
-      return;
-    }
-    if (error === 'email_account_exists') {
-      router.replace('/auth?error=email_account_exists');
-      return;
-    }
-    if (error) {
-      router.replace('/auth');
-      return;
-    }
-
-    if (token) {
-      // Persist session from Google OAuth
-      sessionService.save({
-        userId,
-        token,
-        name,
-        email,
-        avatar: name.slice(0, 2).toUpperCase(),
-        isOnboarded,
-      });
-
-      if (isOnboarded) {
-        setMessage(`Welcome back, ${name}! Loading your dashboard...`);
-        setTimeout(() => router.replace('/(tabs)'), 1000);
-      } else {
-        setMessage(`Welcome, ${name}! Let's set up your profile...`);
-        setTimeout(() => router.replace('/onboarding'), 1200);
+      if (error === 'google_cancelled' || (error && error !== 'email_account_exists')) {
+        router.replace('/auth');
+        return;
       }
-    } else {
-      router.replace('/auth');
-    }
+      if (error === 'email_account_exists') {
+        router.replace('/auth?error=email_account_exists');
+        return;
+      }
+
+      if (token) {
+        sessionService.save({
+          userId,
+          token,
+          name,
+          email,
+          avatar: name.slice(0, 2).toUpperCase(),
+          isOnboarded,
+        });
+
+        if (isOnboarded) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/onboarding');
+        }
+      } else {
+        router.replace('/auth');
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [params]);
 
   return (

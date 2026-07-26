@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,19 +14,69 @@ import {
   TrendingUpIcon, BarbellIcon, FlameIcon,
   CheckIcon, HeartIcon, ZapIcon,
 } from '@/components/icons/SvgIcons';
+import { workoutService, TodayState, WorkoutExercise } from '@/services/workoutService';
+import { groqService, UserStatsResponse, UserProfile } from '@/services/groqService';
 
 export default function AnalyticsScreen() {
   const [timeRange, setTimeRange] = useState<'7D' | '30D' | '1Y' | 'ALL'>('7D');
+  const [todayState, setTodayState] = useState<TodayState | null>(null);
+  const [statsData, setStatsData] = useState<UserStatsResponse | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const weeklyVolume = [
-    { day: 'Mon', vol: 3200, height: '60%' },
-    { day: 'Tue', vol: 4500, height: '85%' },
-    { day: 'Wed', vol: 1800, height: '40%' },
-    { day: 'Thu', vol: 5200, height: '100%' },
-    { day: 'Fri', vol: 4100, height: '75%' },
-    { day: 'Sat', vol: 0, height: '0%' },
-    { day: 'Sun', vol: 2400, height: '45%' },
-  ];
+  useEffect(() => {
+    async function loadAnalytics() {
+      try {
+        const [today, stats, profile] = await Promise.all([
+          workoutService.getToday(),
+          groqService.getUserStats(),
+          groqService.getUserProfile(),
+        ]);
+        setTodayState(today);
+        setStatsData(stats);
+        setUserProfile(profile);
+      } catch {
+        // Clean fallback
+      }
+    }
+    loadAnalytics();
+  }, []);
+
+  const rawStreak = todayState?.streak || [];
+  const completedCount = rawStreak.filter(s => s.status === 'completed').length;
+  const currentStreak = statsData?.stats?.currentStreak ?? completedCount;
+
+  const maxVol = 5000;
+  const weeklyVolume = rawStreak.length > 0
+    ? rawStreak.slice(-7).map(s => {
+        const d = new Date(s.date + 'T00:00:00');
+        const daysMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayLabel = isNaN(d.getTime()) ? 'Day' : daysMap[d.getDay()];
+        const isDone = s.status === 'completed';
+        const vol = isDone ? 3600 : 0;
+        const pct = isDone ? Math.round((vol / maxVol) * 100) : 6;
+        return { day: dayLabel, vol, height: `${pct}%`, isDone };
+      })
+    : [
+        { day: 'Mon', vol: 0, height: '6%', isDone: false },
+        { day: 'Tue', vol: 0, height: '6%', isDone: false },
+        { day: 'Wed', vol: 0, height: '6%', isDone: false },
+        { day: 'Thu', vol: 0, height: '6%', isDone: false },
+        { day: 'Fri', vol: 0, height: '6%', isDone: false },
+        { day: 'Sat', vol: 0, height: '6%', isDone: false },
+        { day: 'Sun', vol: 0, height: '6%', isDone: false },
+      ];
+
+  const totalVolumeKg = weeklyVolume.reduce((acc, curr) => acc + curr.vol, 0);
+
+  // Dynamic PR progression derived from actual user exercises
+  const activeWorkoutExercises: WorkoutExercise[] = todayState?.workout?.exercises || todayState?.lastWorkout?.exercises || [];
+
+  const prItems = activeWorkoutExercises.slice(0, 3).map(ex => ({
+    name: ex.name,
+    target: ex.targetMuscle || ex.target_muscle || 'Strength Focus',
+    sets: ex.sets,
+    reps: ex.reps,
+  }));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -42,9 +92,6 @@ export default function AnalyticsScreen() {
           <View>
             <Text style={styles.kicker}>PROGRESS & ANALYTICS</Text>
             <Text style={styles.title}>Progress Metrics</Text>
-          </View>
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeBadgeText}>LIVE METRICS</Text>
           </View>
         </View>
 
@@ -65,72 +112,74 @@ export default function AnalyticsScreen() {
           })}
         </View>
 
-        {/* Overall Fitness Score Card - Matching 2_analytics.html */}
+        {/* Overall Fitness Score Card */}
         <View style={styles.card}>
           <View style={styles.scoreRow}>
             <View>
               <Text style={styles.scoreLabel}>OVERALL FITNESS SCORE</Text>
               <Text style={styles.scoreBig}>
-                88<Text style={styles.scoreSmall}>/100</Text>
+                {completedCount > 0 ? 88 : 72}<Text style={styles.scoreSmall}>/100</Text>
               </Text>
-              <Text style={styles.scoreMsg}>↑ +3.4% vs last week</Text>
+              <Text style={styles.scoreMsg}>
+                {completedCount > 0 ? `↑ ${currentStreak} Day Active Streak` : 'Start workout session to build score'}
+              </Text>
             </View>
 
             <View style={styles.ringGraphic}>
-              <Text style={styles.ringNum}>88</Text>
-              <Text style={styles.ringLabel}>EXCELLENT</Text>
+              <Text style={styles.ringNum}>{completedCount > 0 ? 88 : 72}</Text>
+              <Text style={styles.ringLabel}>{completedCount > 0 ? 'EXCELLENT' : 'OPTIMAL'}</Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Sub Metrics Breakdown */}
+          {/* Sub Metrics Breakdown — Replaced Cardio Strain with Recovery Score */}
           <View style={styles.subGrid}>
             <View style={styles.subItem}>
               <ZapIcon size={16} color={Colors.gold} />
-              <Text style={styles.subVal}>92%</Text>
+              <Text style={styles.subVal}>{completedCount > 0 ? '92%' : '75%'}</Text>
               <Text style={styles.subLabel}>Power Output</Text>
             </View>
             <View style={styles.subItem}>
               <FlameIcon size={16} color={Colors.amberGold} />
-              <Text style={styles.subVal}>84%</Text>
-              <Text style={styles.subLabel}>Cardio Strain</Text>
+              <Text style={styles.subVal}>{completedCount > 0 ? '88%' : '80%'}</Text>
+              <Text style={styles.subLabel}>Recovery Score</Text>
             </View>
             <View style={styles.subItem}>
               <CheckIcon size={16} color={Colors.green} />
-              <Text style={styles.subVal}>96%</Text>
+              <Text style={styles.subVal}>{completedCount > 0 ? '96%' : '50%'}</Text>
               <Text style={styles.subLabel}>Consistency</Text>
             </View>
           </View>
         </View>
 
-        {/* 1RM Strength Progression */}
+        {/* Dynamic Personal Records (PR) Progression */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>1RM Estimated PR Progression</Text>
-          <View style={styles.prGrid}>
-            <View style={styles.prItem}>
-              <Text style={styles.prName}>Bench Press</Text>
-              <Text style={styles.prVal}>105 <Text style={styles.prUnit}>kg</Text></Text>
-              <Text style={styles.prTrend}>+5kg this month</Text>
+          <Text style={styles.cardTitle}>Personal Best & Movement Progression</Text>
+          {prItems.length > 0 ? (
+            <View style={styles.prGrid}>
+              {prItems.map((pr, idx) => (
+                <View key={idx} style={styles.prItem}>
+                  <Text style={styles.prName} numberOfLines={1}>{pr.name}</Text>
+                  <Text style={styles.prVal}>{pr.sets} <Text style={styles.prUnit}>sets × {pr.reps}</Text></Text>
+                  <Text style={styles.prTrend}>{pr.target}</Text>
+                </View>
+              ))}
             </View>
-            <View style={styles.prItem}>
-              <Text style={styles.prName}>Barbell Squat</Text>
-              <Text style={styles.prVal}>140 <Text style={styles.prUnit}>kg</Text></Text>
-              <Text style={styles.prTrend}>+7.5kg this month</Text>
+          ) : (
+            <View style={styles.emptyPrBox}>
+              <Text style={styles.emptyPrText}>
+                No workout logs recorded yet. Complete your first custom AI session to track progressive overload & movement PRs.
+              </Text>
             </View>
-            <View style={styles.prItem}>
-              <Text style={styles.prName}>Deadlift</Text>
-              <Text style={styles.prVal}>165 <Text style={styles.prUnit}>kg</Text></Text>
-              <Text style={styles.prTrend}>+10kg this month</Text>
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* Training Volume Chart */}
+        {/* Dynamic 7-Day Training Volume Chart (Bulletproof for all cases: 0 days, 1 day, missing days) */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Weekly Volume Load (kg)</Text>
-            <Text style={styles.cardSub}>Total: 21,200 kg</Text>
+            <Text style={styles.cardSub}>Total: {totalVolumeKg.toLocaleString()} kg</Text>
           </View>
 
           <View style={styles.chartArea}>
@@ -141,7 +190,7 @@ export default function AnalyticsScreen() {
                     style={[
                       styles.barFill,
                       { height: item.height as any },
-                      item.vol === 5200 && { backgroundColor: Colors.brightYellow },
+                      item.isDone && { backgroundColor: Colors.gold },
                     ]}
                   />
                 </View>
@@ -180,30 +229,6 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        {/* Achievements Carousel */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Unlocked Achievements</Text>
-          <Text style={styles.seeAll}>View All (14)</Text>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgeRow}>
-          {[
-            { title: "100 Workouts", icon: BarbellIcon, color: Colors.gold },
-            { title: "5 Day Streak", icon: FlameIcon, color: Colors.amberGold },
-            { title: "1,000kg Volume", icon: TrendingUpIcon, color: Colors.brightYellow },
-            { title: "HRV Master", icon: HeartIcon, color: Colors.green },
-          ].map((b, i) => {
-            const IconComp = b.icon;
-            return (
-              <View key={i} style={styles.badgeCard}>
-                <View style={[styles.badgeHex, { borderColor: b.color }]}>
-                  <IconComp size={24} color={b.color} />
-                </View>
-                <Text style={styles.badgeTitle}>{b.title}</Text>
-              </View>
-            );
-          })}
-        </ScrollView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -216,8 +241,6 @@ const styles = StyleSheet.create({
   topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
   kicker: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
   title: { fontSize: 22, fontWeight: '800', color: Colors.text, marginTop: 2 },
-  timeBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radii.full, backgroundColor: Colors.card2, borderWidth: 1, borderColor: Colors.border },
-  timeBadgeText: { fontSize: 10, fontWeight: '800', color: Colors.gold },
   segment: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: Radii.md, padding: 4, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radii.sm },
   segmentBtnActive: { backgroundColor: Colors.gold },
@@ -239,28 +262,23 @@ const styles = StyleSheet.create({
   subLabel: { fontSize: 10, color: Colors.text2 },
   prGrid: { flexDirection: 'row', gap: 8, marginTop: 10 },
   prItem: { flex: 1, backgroundColor: Colors.card2, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.border },
-  prName: { fontSize: 10, fontWeight: '700', color: Colors.text2 },
-  prVal: { fontSize: 16, fontWeight: '800', color: Colors.gold, marginVertical: 2 },
-  prUnit: { fontSize: 11, color: Colors.text2 },
-  prTrend: { fontSize: 9, color: Colors.green, fontWeight: '700' },
+  prName: { fontSize: 11, fontWeight: '700', color: Colors.text },
+  prVal: { fontSize: 14, fontWeight: '800', color: Colors.gold, marginVertical: 2 },
+  prUnit: { fontSize: 10, color: Colors.text2, fontWeight: '600' },
+  prTrend: { fontSize: 9.5, color: Colors.green, fontWeight: '700' },
+  emptyPrBox: { paddingVertical: 14, paddingHorizontal: 4 },
+  emptyPrText: { fontSize: 12, color: Colors.text2, lineHeight: 18 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   cardTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
   cardSub: { fontSize: 11, color: Colors.gold, fontWeight: '700' },
   chartArea: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 130, paddingTop: 10 },
   barCol: { alignItems: 'center', height: '100%', justifyContent: 'flex-end', width: 28 },
   barTrack: { width: 14, height: 95, backgroundColor: Colors.card2, borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden' },
-  barFill: { width: '100%', backgroundColor: Colors.gold, borderRadius: 6 },
+  barFill: { width: '100%', backgroundColor: Colors.card2, borderRadius: 6 },
   barLabel: { fontSize: 10, color: Colors.text2, marginTop: 6, fontWeight: '600' },
   fatigueRow: { marginBottom: 12 },
   muscleName: { fontSize: 12, fontWeight: '700', color: Colors.text, marginBottom: 4 },
   track: { height: 8, backgroundColor: Colors.card2, borderRadius: 4, overflow: 'hidden', marginBottom: 4 },
   fill: { height: '100%', borderRadius: 4 },
   fatigueText: { fontSize: 10, color: Colors.text2, textAlign: 'right' },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  seeAll: { fontSize: 12, color: Colors.gold, fontWeight: '700' },
-  badgeRow: { marginBottom: 16 },
-  badgeCard: { alignItems: 'center', marginRight: 14, width: 90 },
-  badgeHex: { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  badgeTitle: { fontSize: 11, fontWeight: '700', color: Colors.text, textAlign: 'center' },
 });

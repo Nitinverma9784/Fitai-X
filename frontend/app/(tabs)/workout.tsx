@@ -5,18 +5,21 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Modal,
   TextInput,
   Platform,
   RefreshControl,
+  Image,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { workoutService, WorkoutRecord, StreakDay, TodayState } from '@/services/workoutService';
+import { Video, ResizeMode } from 'expo-av';
 
 // ─────────────────────────────────────────────────────────────
 // STREAK CALENDAR
@@ -288,7 +291,7 @@ const genM = StyleSheet.create({
 
   timeline: { gap: 12 },
   stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' },
   dotActive: { backgroundColor: Colors.gold },
   dotDone: { backgroundColor: Colors.green },
   stepNum: { fontSize: 10, fontWeight: '800', color: Colors.text2 },
@@ -297,27 +300,338 @@ const genM = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────────
+// EXERCISE VIDEO & STEPS MODAL
+// ─────────────────────────────────────────────────────────────
+interface ExerciseVideoModalProps {
+  exercise: WorkoutRecord['exercises'][0] | null;
+  visible: boolean;
+  onClose: () => void;
+}
+
+function cleanMediaUrl(inputUrl?: string): string {
+  if (!inputUrl) return '';
+  let url = inputUrl.trim();
+
+  // Recursively unwrap any proxy wrappers if present
+  while (url.includes('media-proxy?') || url.includes('video-proxy?')) {
+    const match = url.match(/url=([^&]+)/);
+    if (match && match[1]) {
+      try {
+        url = decodeURIComponent(match[1]);
+      } catch {
+        url = match[1];
+      }
+    } else {
+      break;
+    }
+  }
+
+  return url;
+}
+
+function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalProps) {
+  const videoRef = React.useRef<Video | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [loadingVideo, setLoadingVideo] = useState(true);
+  const [videoError, setVideoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setIsPlaying(true);
+      setLoadingVideo(true);
+      setVideoError(null);
+
+      const timer = setTimeout(() => {
+        console.warn('[VideoModal] ⏱️ 10s timeout — video still not loaded');
+        setLoadingVideo(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, exercise]);
+
+  if (!exercise || !visible) return null;
+
+  const rawVideo = cleanMediaUrl(exercise.video_url || exercise.videoUrl);
+  const videoUrl = rawVideo;
+
+  console.log('[VideoModal] 📦 Exercise data:', JSON.stringify({
+    name: exercise.name,
+    video_url: exercise.video_url,
+    videoUrl: exercise.videoUrl,
+  }));
+  console.log('[VideoModal] 🎬 Direct ExerciseDB video URL:', videoUrl || '(none)');
+
+  const rawBodymap = cleanMediaUrl(
+    exercise.image_url || exercise.imageUrl || exercise.bodymap_url || exercise.bodymapUrl
+  );
+  const resolvedBodymap = rawBodymap;
+
+  const steps = (exercise.steps && exercise.steps.length > 0)
+    ? exercise.steps
+    : [
+        'Setup with proper posture and core engaged.',
+        'Perform movement through full range of motion.',
+        'Squeeze target muscle at peak contraction.',
+        'Control lowering phase under strict tempo.'
+      ];
+
+  const targetMuscle = exercise.target_muscle || exercise.targetMuscle || 'Target Muscle';
+
+  const handleStartVideo = async () => {
+    setIsPlaying(true);
+    if (videoRef.current) {
+      try {
+        console.log('[VideoModal] ▶️ Calling playAsync()');
+        await videoRef.current.playAsync();
+      } catch (e: any) {
+        console.error('[VideoModal] ❌ playAsync() failed:', e?.message || e);
+      }
+    } else {
+      console.warn('[VideoModal] ⚠️ videoRef.current is null — Video component not mounted yet');
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={evmS.overlay}>
+        <View style={evmS.card}>
+          {/* Header */}
+          <View style={evmS.header}>
+            <View style={{ flex: 1 }}>
+              <View style={evmS.badgeRow}>
+                <View style={evmS.badge}><Text style={evmS.badgeText}>⚡ ExerciseDB HD</Text></View>
+                <View style={evmS.badgeGold}><Text style={evmS.badgeGoldText}>{targetMuscle}</Text></View>
+              </View>
+              <Text style={evmS.title}>{exercise.name}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={evmS.closeBtn}>
+              <Feather name="x" size={20} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+            {/* Video Player Box */}
+            <View style={evmS.videoBox}>
+              {loadingVideo && (
+                <View style={evmS.loadingOverlay}>
+                  <ActivityIndicator size="large" color={Colors.gold} />
+                  <Text style={evmS.loadingText}>Loading Video Demo...</Text>
+                  <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 4, paddingHorizontal: 8, textAlign: 'center' }} numberOfLines={2}>{videoUrl}</Text>
+                </View>
+              )}
+              {videoError && (
+                <View style={{ position: 'absolute', bottom: 6, left: 6, right: 6, backgroundColor: 'rgba(255,50,50,0.85)', borderRadius: 8, padding: 6, zIndex: 20 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>❌ VIDEO ERROR</Text>
+                  <Text style={{ fontSize: 8, color: '#ffd0d0', marginTop: 2 }} numberOfLines={3}>{videoError}</Text>
+                </View>
+              )}
+
+              {Platform.OS === 'web' ? (
+                // @ts-ignore
+                <video
+                  key={videoUrl}
+                  src={videoUrl}
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  onLoadedData={() => setLoadingVideo(false)}
+                  onCanPlay={() => setLoadingVideo(false)}
+                  onError={() => setLoadingVideo(false)}
+                  style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A', objectFit: 'contain' }}
+                />
+              ) : (
+                <Video
+                  ref={videoRef}
+                  style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A' }}
+                  source={{ uri: videoUrl }}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping
+                  shouldPlay={true}
+                  isMuted={true}
+                  onLoad={(status: any) => {
+                    console.log('[VideoModal] ✅ onLoad fired — video loaded successfully', JSON.stringify(status));
+                    setLoadingVideo(false);
+                    setVideoError(null);
+                  }}
+                  onPlaybackStatusUpdate={(status: any) => {
+                    if (status.isLoaded) {
+                      if (!status.isBuffering) setLoadingVideo(false);
+                      if (status.error) {
+                        console.error('[VideoModal] ❌ Playback error in status:', status.error);
+                        setVideoError(String(status.error));
+                      }
+                    } else if (status.error) {
+                      console.error('[VideoModal] ❌ Status error (not loaded):', status.error);
+                      setVideoError(String(status.error));
+                      setLoadingVideo(false);
+                    }
+                  }}
+                  onError={(e: any) => {
+                    const msg = typeof e === 'string' ? e : e?.message || JSON.stringify(e);
+                    console.error('[VideoModal] ❌ onError fired:', msg);
+                    console.error('[VideoModal] ❌ Failed video URL was:', videoUrl);
+                    setVideoError(msg);
+                    setLoadingVideo(false);
+                  }}
+                />
+              )}
+
+              {!isPlaying && Platform.OS !== 'web' && (
+                <TouchableOpacity
+                  style={evmS.startVideoOverlay}
+                  onPress={handleStartVideo}
+                  activeOpacity={0.85}>
+                  <View style={evmS.playCircle}>
+                    <Ionicons name="play" size={26} color="#0A0A0A" style={{ marginLeft: 3 }} />
+                  </View>
+                  <Text style={evmS.startVideoText}>START VIDEO</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Reps & Sets Metadata Bar */}
+            <View style={evmS.metaBar}>
+              <View style={evmS.metaCol}>
+                <Text style={evmS.metaVal}>{exercise.sets}</Text>
+                <Text style={evmS.metaLbl}>TARGET SETS</Text>
+              </View>
+              <View style={evmS.metaDivider} />
+              <View style={evmS.metaCol}>
+                <Text style={evmS.metaVal}>{exercise.reps}</Text>
+                <Text style={evmS.metaLbl}>REPETITIONS</Text>
+              </View>
+              <View style={evmS.metaDivider} />
+              <View style={evmS.metaCol}>
+                <Text style={evmS.metaVal}>{exercise.rest_sec}s</Text>
+                <Text style={evmS.metaLbl}>REST INTERVAL</Text>
+              </View>
+            </View>
+
+            {/* Targeted Muscle Bodymap Diagram */}
+            {resolvedBodymap ? (
+              <View style={evmS.bodymapCard}>
+                <Text style={evmS.bodymapTag}>🎯 TARGETED MUSCLE BODYMAP</Text>
+                <Image
+                  source={{ uri: resolvedBodymap }}
+                  style={{ width: '100%', height: 160, borderRadius: 10, resizeMode: 'contain', marginTop: 6 }}
+                />
+              </View>
+            ) : null}
+
+            {/* Form Tip */}
+            {exercise.tip ? (
+              <View style={evmS.tipCard}>
+                <Text style={evmS.tipTag}>PRO FORM TIP</Text>
+                <Text style={evmS.tipText}>{exercise.tip}</Text>
+              </View>
+            ) : null}
+
+            {/* Step-by-Step Instructions */}
+            <View style={evmS.stepsSection}>
+              <Text style={evmS.sectionTitle}>STEP-BY-STEP INSTRUCTIONS</Text>
+              {steps.map((st, idx) => (
+                <View key={idx} style={evmS.stepRow}>
+                  <View style={evmS.stepBadge}>
+                    <Text style={evmS.stepBadgeNum}>{idx + 1}</Text>
+                  </View>
+                  <Text style={evmS.stepText}>{st}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Action Close */}
+          <TouchableOpacity style={evmS.actionBtn} onPress={onClose} activeOpacity={0.85}>
+            <Text style={evmS.actionBtnText}>Got It — Ready to Lift 💪</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const evmS = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  card: { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 30, borderWidth: 1, borderColor: Colors.border },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  badgeRow: { flexDirection: 'row', gap: 6, marginBottom: 4 },
+  badge: { backgroundColor: 'rgba(245,196,0,0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' },
+  badgeText: { fontSize: 9.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.5 },
+  badgeGold: { backgroundColor: Colors.card2, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: Colors.border },
+  badgeGoldText: { fontSize: 9.5, fontWeight: '700', color: Colors.text2 },
+  title: { fontSize: 18, fontWeight: '800', color: Colors.text },
+  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  
+  videoBox: { position: 'relative', width: '100%', height: 210, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1A1A1A', marginBottom: 14, justifyContent: 'center', alignItems: 'center' },
+  loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#141414', zIndex: 10, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  loadingText: { fontSize: 12, fontWeight: '700', color: Colors.gold, letterSpacing: 0.5 },
+  nativeVideoPlaceholder: { alignItems: 'center', justifyContent: 'center', gap: 6 },
+  videoTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+  videoSub: { fontSize: 11, color: Colors.text2 },
+  startVideoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  playCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  startVideoText: { fontSize: 12, fontWeight: '900', color: Colors.gold, letterSpacing: 1.5 },
+
+  metaBar: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 12, alignItems: 'center' },
+  metaCol: { flex: 1, alignItems: 'center' },
+  metaVal: { fontSize: 15, fontWeight: '800', color: Colors.gold },
+  metaLbl: { fontSize: 8.5, fontWeight: '800', color: Colors.text2, letterSpacing: 0.8, marginTop: 2 },
+  metaDivider: { width: 1, height: 24, backgroundColor: Colors.border },
+
+  bodymapCard: { backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 14, alignItems: 'center' },
+  bodymapTag: { fontSize: 9, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, alignSelf: 'flex-start' },
+
+  tipCard: { backgroundColor: 'rgba(245,196,0,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(245,196,0,0.2)', marginBottom: 14 },
+  tipTag: { fontSize: 9, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 4 },
+  tipText: { fontSize: 12, color: Colors.text, lineHeight: 17 },
+
+  stepsSection: { gap: 10, marginBottom: 14 },
+  sectionTitle: { fontSize: 10, fontWeight: '800', color: Colors.text2, letterSpacing: 1 },
+  stepRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: Colors.card, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border },
+  stepBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  stepBadgeNum: { fontSize: 10, fontWeight: '900', color: '#0A0A0A' },
+  stepText: { flex: 1, fontSize: 12, color: Colors.text, lineHeight: 17 },
+
+  actionBtn: { backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 6 },
+  actionBtnText: { fontSize: 14, fontWeight: '800', color: '#0A0A0A' },
+});
+
+// ─────────────────────────────────────────────────────────────
 // EXERCISE CARD
 // ─────────────────────────────────────────────────────────────
 function ExerciseCard({
-  exercise, index, onToggle,
+  exercise, index, onToggle, onSelect,
 }: {
   exercise: WorkoutRecord['exercises'][0];
   index: number;
   onToggle: (id: number, isDone: boolean) => void;
+  onSelect: (ex: WorkoutRecord['exercises'][0]) => void;
 }) {
   const done = !!exercise.is_completed;
 
   return (
     <View style={[exS.card, done && exS.cardDone]}>
-      <View style={exS.numWrap}>
+      <TouchableOpacity style={exS.numWrap} onPress={() => onSelect(exercise)}>
         <Text style={exS.numText}>{index + 1}</Text>
-      </View>
-      <View style={exS.info}>
-        <Text style={[exS.name, done && { opacity: 0.5 }]}>{exercise.name}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={exS.info} onPress={() => onSelect(exercise)} activeOpacity={0.7}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[exS.name, done && { opacity: 0.5 }]}>{exercise.name}</Text>
+        </View>
         <Text style={exS.meta}>{exercise.sets} Sets × {exercise.reps} Reps · {exercise.rest_sec}s Rest</Text>
-        {exercise.tip ? <Text style={exS.tip}>💡 {exercise.tip}</Text> : null}
-      </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <TouchableOpacity style={exS.videoBtn} onPress={() => onSelect(exercise)} activeOpacity={0.8}>
+            <Ionicons name="play-circle" size={14} color={Colors.gold} />
+            <Text style={exS.videoBtnText}>▶ Video &amp; Steps</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={[exS.checkBtn, done && exS.checkBtnDone]}
         onPress={() => onToggle(Number(exercise.id), !done)}
@@ -339,7 +653,8 @@ const exS = StyleSheet.create({
   info: { flex: 1 },
   name: { fontSize: 14, fontWeight: '700', color: Colors.text, marginBottom: 2 },
   meta: { fontSize: 11, color: Colors.text2 },
-  tip: { fontSize: 11, color: Colors.gold, marginTop: 4, fontStyle: 'italic' },
+  videoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,196,0,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245,196,0,0.25)' },
+  videoBtnText: { fontSize: 10, fontWeight: '800', color: Colors.gold },
   checkBtn: { width: 48, height: 40, borderRadius: 12, backgroundColor: Colors.card2, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   checkBtnDone: { backgroundColor: Colors.green, borderColor: Colors.green },
   checkText: { fontSize: 11, fontWeight: '800', color: Colors.gold },
@@ -356,6 +671,7 @@ export default function WorkoutScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutRecord['exercises'][0] | null>(null);
 
   const load = useCallback(async () => {
     const data = await workoutService.getToday();
@@ -368,7 +684,10 @@ export default function WorkoutScreen() {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    await workoutService.generate();
+    const result = await workoutService.generate();
+    if (!result.success) {
+      Alert.alert('FitAI Engine Notice', result.error || 'Unable to generate your AI workout. Please try again.');
+    }
     await load();
     setGenerating(false);
   };
@@ -430,6 +749,7 @@ export default function WorkoutScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
       <FeedbackModal visible={showFeedback} onSubmit={handleFeedbackSubmit} onSkip={handleFeedbackSkip} />
       <AIGenerationModal visible={generating} lastWorkout={state?.lastWorkout} />
+      <ExerciseVideoModal visible={!!selectedExercise} exercise={selectedExercise} onClose={() => setSelectedExercise(null)} />
 
       <ScrollView
         style={s.container}
@@ -592,6 +912,7 @@ export default function WorkoutScreen() {
                 exercise={ex}
                 index={i}
                 onToggle={scenario === 'COMPLETED_TODAY' ? () => {} : handleToggleExercise}
+                onSelect={(selected) => setSelectedExercise(selected)}
               />
             ))}
 
@@ -653,9 +974,9 @@ const s = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: Spacing.lg },
   content: { paddingBottom: 110 },
 
-  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 16 },
-  kicker: { fontSize: 10, fontWeight: '800', color: Colors.gold, letterSpacing: 1, marginBottom: 2 },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.text },
+  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
+  kicker: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
+  title: { fontSize: 22, fontWeight: '800', color: Colors.text, marginTop: 2 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
 
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(245,196,0,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(245,196,0,0.25)', alignSelf: 'flex-start' },

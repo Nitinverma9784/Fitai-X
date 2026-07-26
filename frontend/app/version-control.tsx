@@ -112,35 +112,44 @@ function CommitDetailModal({
               </View>
             )}
 
-            {/* Exercises */}
-            <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.text2, letterSpacing: 0.5, marginBottom: 8 }}>
-              EXERCISES IN THIS VERSION
-            </Text>
-            {commit.exercises.map((ex, i) => (
-              <View key={ex.id || i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.gold, width: 22 }}>{i + 1}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.text }}>{ex.name}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.text2 }}>
-                    {ex.targetMuscle} · {ex.sets}×{ex.reps} · RPE {ex.rpeTarget}
-                  </Text>
-                  {(ex as any).substituteFor && (
-                    <Text style={{ fontSize: 10, color: '#FF6B6B', marginTop: 2 }}>Replaced: {(ex as any).substituteFor}</Text>
-                  )}
+            {/* AI Exercise Graph Thinking & Workload Node Flow */}
+            <View style={{ marginTop: 16, marginBottom: 16, backgroundColor: '#0D0D0D', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#222' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 8 }}>
+                AI EXERCISE WORKLOAD GRAPH NODES
+              </Text>
+              <Text style={{ fontSize: 11.5, color: Colors.text2, marginBottom: 12, lineHeight: 16 }}>
+                Graph Thinking: Swapping or adjusting any exercise dynamically updates secondary synergist fatigue across connected graph nodes.
+              </Text>
+
+              {commit.exercises.map((ex, idx) => (
+                <View key={idx} style={{ marginBottom: 10, backgroundColor: '#141414', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#262626' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <View style={{ backgroundColor: Colors.gold, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: '#0A0A0A' }}>{ex.name}</Text>
+                    </View>
+                    <Text style={{ color: Colors.gold, fontSize: 12, fontWeight: '900' }}>↓</Text>
+                    <View style={{ backgroundColor: 'rgba(245,196,0,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold }}>{ex.targetMuscle}</Text>
+                    </View>
+                    <Text style={{ color: Colors.text2, fontSize: 12 }}>↓</Text>
+                    <View style={{ backgroundColor: '#222', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.text2 }}>Synergist Node</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
 
             {/* Rollback */}
             {!isLatest && (
               <TouchableOpacity
-                style={{ backgroundColor: 'rgba(245,196,0,0.1)', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 22, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                style={{ backgroundColor: 'rgba(245,196,0,0.1)', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 14, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 onPress={() => onRollback(commit.versionId)}
                 activeOpacity={0.85}>
                 <Feather name="rotate-ccw" size={15} color={Colors.gold} />
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.gold }}>Restore {commit.versionId}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.text2, marginTop: 1 }}>Creates a new rollback commit in history</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: Colors.gold }}>1-Week Rollback to {commit.versionId}</Text>
+                  <Text style={{ fontSize: 10.5, color: Colors.text2, marginTop: 1 }}>Restores training baseline from 1 week ago and logs a clean rollback commit</Text>
                 </View>
               </TouchableOpacity>
             )}

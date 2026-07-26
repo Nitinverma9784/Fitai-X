@@ -6,11 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { groqService } from '@/services/groqService';
@@ -25,6 +25,7 @@ export default function OnboardingWizardScreen() {
 
   // Form State
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
   const [age, setAge] = useState('25');
   const [heightCm, setHeightCm] = useState('175');
   const [weightKg, setWeightKg] = useState('70');
@@ -44,6 +45,7 @@ export default function OnboardingWizardScreen() {
       try {
         await groqService.submitOnboarding({
           name: name || 'Athlete',
+          gender,
           age,
           heightCm,
           weightKg,
@@ -123,6 +125,30 @@ export default function OnboardingWizardScreen() {
                 value={name}
                 onChangeText={setName}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Gender (For Video Demonstrations)</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                {[
+                  { id: 'male', label: 'Male ♂' },
+                  { id: 'female', label: 'Female ♀' },
+                  { id: 'other', label: 'Other ⚡' },
+                ].map(g => {
+                  const active = gender === g.id;
+                  return (
+                    <TouchableOpacity
+                      key={g.id}
+                      style={[
+                        { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+                        active && { borderColor: Colors.gold, backgroundColor: 'rgba(245,196,0,0.12)' },
+                      ]}
+                      onPress={() => setGender(g.id as any)}>
+                      <Text style={[{ fontSize: 13, fontWeight: '700', color: Colors.text2 }, active && { color: Colors.gold }]}>{g.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             <View style={styles.inputGroup}>

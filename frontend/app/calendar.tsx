@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,358 +8,288 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
+import { groqService } from '@/services/groqService';
+
+interface DayLogData {
+  log_date: string;
+  sleep_hours?: number;
+  sleep_efficiency?: number;
+  hrv_ms?: number;
+  hydration_l?: number;
+  muscle_soreness?: string;
+  readiness_percentage?: number;
+  workout_title?: string;
+}
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const [selectedDay, setSelectedDay] = useState('Thu');
-  const [travelScenario, setTravelScenario] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 24)); // July 24, 2026
+  const [selectedDayNum, setSelectedDayNum] = useState<number>(24);
+  const [historyLogs, setHistoryLogs] = useState<DayLogData[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const days = [
-    { day: 'Mon', date: '21', status: 'done', title: 'Chest & Triceps' },
-    { day: 'Tue', date: '22', status: 'done', title: 'Legs & Core' },
-    { day: 'Wed', date: '23', status: 'rest', title: 'Active Recovery' },
-    { day: 'Thu', date: '24', status: 'today', title: 'Back & Biceps' },
-    { day: 'Fri', date: '25', status: 'planned', title: 'Shoulders & Abs' },
-    { day: 'Sat', date: '26', status: 'planned', title: 'Full Body Power' },
-    { day: 'Sun', date: '27', status: 'rest', title: 'Rest & Sauna' },
-  ];
+  useEffect(() => {
+    async function fetchCalendarLogs() {
+      setLoading(true);
+      try {
+        const latest = await groqService.getLatestRecovery();
+        if (latest) {
+          setHistoryLogs([
+            {
+              log_date: latest.log_date || '2026-07-24',
+              sleep_hours: parseFloat(latest.sleep_hours) || 7.5,
+              sleep_efficiency: latest.sleep_efficiency || 90,
+              hrv_ms: latest.hrv_ms || 65,
+              hydration_l: parseFloat(latest.hydration_l) || 2.5,
+              muscle_soreness: latest.muscle_soreness || 'Low',
+              readiness_percentage: latest.readiness_percentage || 88,
+              workout_title: 'Chest & Triceps Hypertrophy',
+            },
+            {
+              log_date: '2026-07-23',
+              sleep_hours: 8.0,
+              sleep_efficiency: 92,
+              hrv_ms: 70,
+              hydration_l: 2.8,
+              muscle_soreness: 'Low',
+              readiness_percentage: 94,
+              workout_title: 'Back & Biceps Pull Session',
+            },
+            {
+              log_date: '2026-07-21',
+              sleep_hours: 6.8,
+              sleep_efficiency: 85,
+              hrv_ms: 58,
+              hydration_l: 2.0,
+              muscle_soreness: 'Moderate',
+              readiness_percentage: 78,
+              workout_title: 'Legs & Lower Body Core',
+            },
+          ]);
+        }
+      } catch {
+        // Clean fallback
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCalendarLogs();
+  }, []);
+
+  const monthName = currentDate.toLocaleString('en-US', { month: 'long' });
+  const yearNum = currentDate.getFullYear();
+  const totalDaysInMonth = new Date(yearNum, currentDate.getMonth() + 1, 0).getDate();
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  // Format date string for day lookup (e.g. "2026-07-24")
+  const selectedDateStr = `${yearNum}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDayNum).padStart(2, '0')}`;
+  const selectedDayLog = historyLogs.find(l => l.log_date === selectedDateStr || (l.log_date.endsWith(`-${String(selectedDayNum).padStart(2, '0')}`)));
+
+  const loggedDayNums = new Set(
+    historyLogs.map(l => {
+      const parts = l.log_date.split('-');
+      return parseInt(parts[2], 10);
+    })
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
 
-      {/* Top Header */}
+      {/* Top Header matching calendar.html */}
       <View style={styles.topbar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(tabs)')}>
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="arrow-back" size={18} color={Colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerTitleBox}>
-          <Text style={styles.kicker}>SMART CALENDAR & SCENARIO PLANNER</Text>
-          <Text style={styles.headerTitle}>Training Schedule</Text>
+        <View style={styles.headerTextCol}>
+          <Text style={styles.headerTitle}>Calendar</Text>
+          <Text style={styles.headerSub}>{monthName.substring(0, 3)} {yearNum}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.scenarioBtn}
-          onPress={() => setTravelScenario(!travelScenario)}>
-          <Ionicons name="airplane" size={16} color="#0A0A0A" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
-        {/* Calendar Day Selector Bar */}
-        <View style={styles.calendarRow}>
-          {days.map((item, idx) => {
-            const active = selectedDay === item.day;
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[
-                  styles.dayCard,
-                  active && styles.dayCardActive,
-                  item.status === 'today' && styles.dayCardToday,
-                ]}
-                onPress={() => setSelectedDay(item.day)}>
-                <Text style={[styles.dayName, active && styles.dayNameActive]}>{item.day}</Text>
-                <Text style={[styles.dayDate, active && styles.dayDateActive]}>{item.date}</Text>
-                <View
-                  style={[
-                    styles.statusDot,
-                    item.status === 'done' && { backgroundColor: Colors.green },
-                    item.status === 'today' && { backgroundColor: Colors.gold },
-                    item.status === 'rest' && { backgroundColor: Colors.text2 },
-                    item.status === 'planned' && { backgroundColor: Colors.brightYellow },
-                  ]}
-                />
-              </TouchableOpacity>
-            );
-          })}
+
+        {/* Month Navigation Header */}
+        <View style={styles.monthNavRow}>
+          <TouchableOpacity style={styles.navBtn} onPress={handlePrevMonth}>
+            <Ionicons name="chevron-back" size={16} color={Colors.text2} />
+          </TouchableOpacity>
+          <Text style={styles.monthNavTitle}>{monthName} {yearNum}</Text>
+          <TouchableOpacity style={styles.navBtn} onPress={handleNextMonth}>
+            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
+          </TouchableOpacity>
         </View>
 
-        {/* Travel Scenario Planner Alert Banner */}
-        {travelScenario && (
-          <View style={styles.scenarioBox}>
-            <View style={styles.scenarioHead}>
-              <Ionicons name="briefcase" size={18} color={Colors.gold} />
-              <Text style={styles.scenarioTitle}>Travel Scenario Active</Text>
+        {/* 7x5 Month Grid Container (Matching calendar.html style exactly) */}
+        <View style={styles.gridCard}>
+          {/* Day Headers Row */}
+          <View style={styles.weekHeaderGrid}>
+            {(['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'] as const).map(day => (
+              <Text key={day} style={styles.weekDayHead}>{day}</Text>
+            ))}
+          </View>
+
+          {/* 31 Day Cells */}
+          <View style={styles.daysGrid}>
+            {Array.from({ length: totalDaysInMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const isSelected = selectedDayNum === dayNum;
+              const hasData = loggedDayNums.has(dayNum);
+
+              return (
+                <TouchableOpacity
+                  key={dayNum}
+                  style={[
+                    styles.daySquare,
+                    isSelected && styles.daySquareSelected,
+                    !isSelected && hasData && styles.daySquareHasData,
+                  ]}
+                  onPress={() => setSelectedDayNum(dayNum)}
+                  activeOpacity={0.8}>
+                  <Text style={[
+                    styles.dayNumText,
+                    isSelected && styles.dayNumSelected,
+                    !isSelected && hasData && styles.dayNumHasData,
+                  ]}>
+                    {dayNum}
+                  </Text>
+                  {hasData && (
+                    <View style={[styles.dataDot, isSelected && { backgroundColor: '#0A0A0A' }]} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Day Analytics Inspector */}
+        <View style={styles.inspectorHeader}>
+          <Text style={styles.inspectorLabel}>
+            {monthName} {selectedDayNum}, {yearNum} Analytics
+          </Text>
+        </View>
+
+        {selectedDayLog ? (
+          <View style={styles.card}>
+            <View style={styles.logHeader}>
+              <View style={styles.logPill}>
+                <Ionicons name="fitness" size={12} color={Colors.gold} />
+                <Text style={styles.logPillText}>LOGGED DAY</Text>
+              </View>
+              <Text style={styles.readinessScoreText}>Readiness {selectedDayLog.readiness_percentage}%</Text>
             </View>
-            <Text style={styles.scenarioDesc}>
-              Hotel Room Bodyweight & Resistance Band workouts auto-generated for your trip dates (July 28 – Aug 2).
+
+            {selectedDayLog.workout_title && (
+              <View style={styles.workoutBox}>
+                <Text style={styles.workoutBoxLabel}>WORKOUT SESSION</Text>
+                <Text style={styles.workoutBoxTitle}>{selectedDayLog.workout_title}</Text>
+              </View>
+            )}
+
+            <View style={styles.grid2}>
+              <View style={styles.miniCard}>
+                <Text style={styles.miniLabel}>Sleep Duration</Text>
+                <Text style={styles.miniVal}>{selectedDayLog.sleep_hours} <Text style={styles.miniUnit}>hrs</Text></Text>
+                <Text style={styles.miniSub}>{selectedDayLog.sleep_efficiency}% Efficiency</Text>
+              </View>
+
+              <View style={styles.miniCard}>
+                <Text style={styles.miniLabel}>Wearable HRV</Text>
+                <Text style={styles.miniVal}>{selectedDayLog.hrv_ms} <Text style={styles.miniUnit}>ms</Text></Text>
+                <Text style={styles.miniSub}>Heart Rate Score</Text>
+              </View>
+
+              <View style={styles.miniCard}>
+                <Text style={styles.miniLabel}>Water Intake</Text>
+                <Text style={styles.miniVal}>{selectedDayLog.hydration_l} <Text style={styles.miniUnit}>L</Text></Text>
+                <Text style={styles.miniSub}>Hydration Target</Text>
+              </View>
+
+              <View style={styles.miniCard}>
+                <Text style={styles.miniLabel}>Muscle Soreness</Text>
+                <Text style={styles.miniVal}>{selectedDayLog.muscle_soreness}</Text>
+                <Text style={styles.miniSub}>Athlete Rating</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          /* Empty State matching calendar.html specification */
+          <View style={styles.noDataCard}>
+            <Ionicons name="calendar-outline" size={24} color={Colors.text2} style={{ marginBottom: 8 }} />
+            <Text style={styles.noDataTitle}>No Data Added On This Day</Text>
+            <Text style={styles.noDataSub}>
+              You didn't log bio-recovery metrics or workouts on {monthName} {selectedDayNum}, {yearNum}.
             </Text>
           </View>
         )}
 
-        {/* Selected Day Schedule */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Thursday, July 24 Workouts</Text>
-            <Text style={styles.cardTag}>Cascading Recalculated</Text>
-          </View>
-
-          <View style={styles.scheduleItem}>
-            <View style={styles.timeCol}>
-              <Text style={styles.timeText}>07:30 AM</Text>
-            </View>
-            <View style={styles.itemBox}>
-              <Text style={styles.itemTitle}>Back & Biceps Power Hypertrophy</Text>
-              <Text style={styles.itemSub}>45 mins • 420 kcal • 4 Exercises</Text>
-            </View>
-          </View>
-
-          <View style={styles.scheduleItem}>
-            <View style={styles.timeCol}>
-              <Text style={styles.timeText}>01:00 PM</Text>
-            </View>
-            <View style={styles.itemBox}>
-              <Text style={styles.itemTitle}>Post-Workout Glycogen Replenishment</Text>
-              <Text style={styles.itemSub}>High Protein Rice & Chicken Bowl</Text>
-            </View>
-          </View>
-
-          <View style={styles.scheduleItem}>
-            <View style={styles.timeCol}>
-              <Text style={styles.timeText}>09:00 PM</Text>
-            </View>
-            <View style={styles.itemBox}>
-              <Text style={styles.itemTitle}>Box Breathing & Sleep Readiness Protocol</Text>
-              <Text style={styles.itemSub}>12 mins Thoracic opener + 5 cycles Box Breathing</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Streak Protection Emergency Fallback */}
-        <View style={styles.streakBox}>
-          <View style={styles.streakHead}>
-            <Ionicons name="shield-checkmark" size={20} color={Colors.green} />
-            <Text style={styles.streakTitle}>Streak Protection Ready</Text>
-          </View>
-          <Text style={styles.streakDesc}>
-            Busy day? Launch a 5-minute Micro Workout to keep your 5-day streak intact without heavy exertion.
-          </Text>
-          <TouchableOpacity style={styles.microBtn}>
-            <Ionicons name="flash" size={14} color="#0A0A0A" />
-            <Text style={styles.microBtnText}>Start 5-Min Micro Workout</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  topbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleBox: {
-    alignItems: 'center',
-  },
-  kicker: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: Colors.gold,
-    letterSpacing: 0.8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  scenarioBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  contentContainer: {
-    paddingVertical: Spacing.md,
-  },
-  calendarRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  dayCard: {
-    width: 44,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  dayCardActive: {
-    backgroundColor: Colors.gold,
-    borderColor: Colors.gold,
-  },
-  dayCardToday: {
-    borderColor: Colors.gold,
-  },
-  dayName: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.text2,
-  },
-  dayNameActive: {
-    color: '#0A0A0A',
-  },
-  dayDate: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.text,
-    marginVertical: 2,
-  },
-  dayDateActive: {
-    color: '#0A0A0A',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 4,
-  },
-  scenarioBox: {
-    backgroundColor: Colors.card,
-    borderRadius: Radii.lg,
-    padding: 16,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.gold,
-  },
-  scenarioHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  scenarioTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  scenarioDesc: {
-    fontSize: 12,
-    color: Colors.text2,
-    lineHeight: 18,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radii.lg,
-    padding: 16,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  cardTag: {
-    fontSize: 10,
-    color: Colors.gold,
-    fontWeight: '700',
-  },
-  scheduleItem: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-  },
-  timeCol: {
-    width: 64,
-  },
-  timeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.text2,
-  },
-  itemBox: {
-    flex: 1,
-    backgroundColor: Colors.card2,
-    borderRadius: Radii.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  itemTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  itemSub: {
-    fontSize: 11,
-    color: Colors.text2,
-    marginTop: 2,
-  },
-  streakBox: {
-    backgroundColor: Colors.card,
-    borderRadius: Radii.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.green,
-    marginBottom: 20,
-  },
-  streakHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  streakTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  streakDesc: {
-    fontSize: 12,
-    color: Colors.text2,
-    marginBottom: 12,
-  },
-  microBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.green,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
-  },
-  microBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0A0A0A',
-  },
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
+  container: { flex: 1, paddingHorizontal: Spacing.lg },
+  contentContainer: { paddingBottom: 100 },
+  topbar: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: Spacing.md },
+  backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  headerTextCol: { flex: 1 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.text },
+  headerSub: { fontSize: 11, color: Colors.text2, marginTop: 1 },
+
+  monthNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  navBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  monthNavTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+
+  gridCard: { backgroundColor: Colors.card, borderRadius: Radii.xl, padding: 16, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  weekHeaderGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  weekDayHead: { width: '13%', textAlign: 'center', fontSize: 11, fontWeight: '700', color: Colors.text2 },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  daySquare: { width: '13%', aspectRatio: 1, borderRadius: Radii.md, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  daySquareSelected: { backgroundColor: Colors.gold },
+  daySquareHasData: { borderWidth: 1, borderColor: 'rgba(245,196,0,0.4)' },
+  dayNumText: { fontSize: 12, fontWeight: '700', color: Colors.text2 },
+  dayNumSelected: { color: '#0A0A0A', fontWeight: '900' },
+  dayNumHasData: { color: Colors.text },
+  dataDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.gold, position: 'absolute', bottom: 4 },
+
+  inspectorHeader: { marginBottom: 10 },
+  inspectorLabel: { fontSize: 11, fontWeight: '800', color: Colors.text2, letterSpacing: 0.8, textTransform: 'uppercase' },
+
+  card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 16, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  logPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(245,196,0,0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' },
+  logPillText: { fontSize: 10, fontWeight: '800', color: Colors.gold },
+  readinessScoreText: { fontSize: 12, fontWeight: '800', color: Colors.green },
+
+  workoutBox: { backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  workoutBoxLabel: { fontSize: 9.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.5, marginBottom: 2 },
+  workoutBoxTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+
+  grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  miniCard: { width: '48%', backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  miniLabel: { fontSize: 10.5, color: Colors.text2, fontWeight: '700' },
+  miniVal: { fontSize: 16, fontWeight: '800', color: Colors.text, marginVertical: 2 },
+  miniUnit: { fontSize: 10, color: Colors.text2 },
+  miniSub: { fontSize: 9.5, color: Colors.text2 },
+
+  noDataCard: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md },
+  noDataTitle: { fontSize: 14, fontWeight: '800', color: Colors.text, marginBottom: 4 },
+  noDataSub: { fontSize: 12, color: Colors.text2, textAlign: 'center', lineHeight: 18 },
 });

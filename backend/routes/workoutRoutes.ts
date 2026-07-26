@@ -3,6 +3,7 @@ import { db } from '../core/database';
 import { generateAdaptiveWorkoutWithGroq, WorkoutGenerationContext } from '../services/workoutAiService';
 import { versionControlService } from '../services/versionControlService';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
+import { fetchExerciseDbDetails } from '../services/exerciseDbService';
 
 const router = Router();
 
@@ -35,6 +36,24 @@ router.get('/today', authenticateToken, async (req: AuthenticatedRequest, res: R
     }
 
     if (todayWorkout) {
+      if (Array.isArray(todayWorkout.exercises)) {
+        for (const ex of todayWorkout.exercises) {
+          if (!ex.video_url || !ex.video_url.includes('exercisedb.dev')) {
+            const edbData = await fetchExerciseDbDetails(ex.name);
+            if (edbData.videoUrl) {
+              ex.video_url = edbData.videoUrl;
+              ex.videoUrl = edbData.videoUrl;
+              ex.image_url = edbData.imageUrl;
+              ex.imageUrl = edbData.imageUrl;
+              ex.steps = (edbData.steps && edbData.steps.length > 0) ? edbData.steps : ex.steps;
+              ex.target_muscle = edbData.targetMuscle;
+              ex.targetMuscle = edbData.targetMuscle;
+              ex.tip = edbData.tip || ex.tip;
+            }
+          }
+        }
+      }
+
       const scenario = todayWorkout.status === 'completed' ? 'COMPLETED_TODAY' : 'HAS_WORKOUT_TODAY';
       return res.json({ success: true, scenario, workout: todayWorkout, streak, totalWorkouts, missedCount: missedDays });
     }
@@ -80,8 +99,22 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
       else if (streak[i].status === 'completed') break;
     }
 
+    const userExerciseLogs = await db.getUserExerciseLogs(userId, 20);
+    const latestRecovery = await db.getLatestRecovery(userId);
+
+    const previousDaySummary = latestRecovery ? {
+      date: latestRecovery.log_date || 'Yesterday',
+      sleepHours: parseFloat(latestRecovery.sleep_hours) || 7.5,
+      sleepEfficiency: latestRecovery.sleep_efficiency || 90,
+      hrvMs: latestRecovery.hrv_ms || 65,
+      soreness: latestRecovery.muscle_soreness || 'Low',
+      readinessPercentage: latestRecovery.readiness_percentage || 85,
+      workoutTitle: lastWorkout?.title || 'None',
+    } : undefined;
+
     const ctx: WorkoutGenerationContext = {
       userName: userProfile?.name || 'Athlete',
+      gender: userProfile?.gender || 'male',
       goal: userProfile?.goal || 'Muscle Gain & Hypertrophy',
       weightKg: parseFloat(userProfile?.weight_kg) || 75,
       equipment: userProfile?.equipment || 'Commercial Gym',
@@ -96,6 +129,8 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
         durationMinutes: lastWorkout.duration_minutes || 45,
       } : undefined,
       lastFeedback: lastFeedback && lastWorkout?.status === 'completed' ? lastFeedback : undefined,
+      userExerciseLogs,
+      previousDaySummary,
     };
 
     const plan = await generateAdaptiveWorkoutWithGroq(ctx);
@@ -119,6 +154,8 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
         icon: e.icon,
         tip: e.tip,
         targetMuscle: e.targetMuscle,
+        videoUrl: e.videoUrl,
+        steps: e.steps,
       })),
     });
 
@@ -264,6 +301,86 @@ router.post('/set-complete', authenticateToken, async (req: AuthenticatedRequest
     res.json({ success: true, data: result });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── LOG EXERCISE WEIGHT & REPS ──────────────────────────────────────────────
+router.post('/exercise-log', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const { exerciseName, weightKg, barWeightKg, plateWeightKg, repsAchieved, isBodyweight } = req.body;
+    if (!exerciseName || repsAchieved === undefined) {
+      return res.status(400).json({ success: false, error: 'Missing required parameters: exerciseName and repsAchieved.' });
+    }
+    const result = await db.saveExerciseLog(userId, {
+      exerciseName,
+      weightKg: weightKg ? parseFloat(weightKg) : undefined,
+      barWeightKg: barWeightKg ? parseFloat(barWeightKg) : undefined,
+      plateWeightKg: plateWeightKg ? parseFloat(plateWeightKg) : undefined,
+      repsAchieved: parseInt(repsAchieved, 10),
+      isBodyweight: !!isBodyweight,
+    });
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── GET EXERCISE LOGS FOR PROGRESSIVE OVERLOAD ──────────────────────────────
+router.get('/exercise-logs', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const logs = await db.getUserExerciseLogs(userId, 30);
+    res.json({ success: true, data: logs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── ROLLBACK WORKOUT VERSION ────────────────────────────────────────────────
+router.post('/rollback', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const { targetVersionId } = req.body;
+    const rollbackCommit = versionControlService.rollbackToVersion(userId, targetVersionId || 'v1.0');
+    if (!rollbackCommit) {
+      return res.status(400).json({ success: false, error: 'Unable to rollback to specified version.' });
+    }
+    res.json({ success: true, data: rollbackCommit });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── MEDIA PROXY (VIDEOS & IMAGES) ───────────────────────────────────────────
+router.get(['/video-proxy', '/media-proxy'], async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const directUrl = req.query.url as string;
+    if (!directUrl) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+
+    const reqHeaders: Record<string, string> = {};
+    if (req.headers.range) {
+      reqHeaders['Range'] = req.headers.range as string;
+    }
+
+    const upstreamRes = await fetch(directUrl, { headers: reqHeaders });
+    if (!upstreamRes.ok) {
+      return res.status(upstreamRes.status).send(`Media stream error: HTTP ${upstreamRes.status}`);
+    }
+
+    res.status(upstreamRes.status);
+    upstreamRes.headers.forEach((val: string, key: string) => {
+      if (['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'].includes(key.toLowerCase())) {
+        res.setHeader(key, val);
+      }
+    });
+
+    const arrayBuf = await upstreamRes.arrayBuffer();
+    res.send(Buffer.from(arrayBuf));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -33,6 +33,16 @@ export interface WorkoutExercise {
   completed_sets: number;
   is_completed: boolean;
   targetMuscle?: string;
+  target_muscle?: string;
+  video_url?: string;
+  videoUrl?: string;
+  image_url?: string;
+  imageUrl?: string;
+  steps?: string[];
+  bodymap_male?: string;
+  bodymap_female?: string;
+  bodymap_url?: string;
+  bodymapUrl?: string;
 }
 
 export interface WorkoutRecord {
@@ -84,6 +94,10 @@ export interface WorkoutCommit {
 }
 
 export const workoutService = {
+  getApiBase(): string {
+    return BASE;
+  },
+
   async getToday(): Promise<TodayState | null> {
     try {
       const res = await fetch(`${BASE}/workout/today`, { headers: headers() });
@@ -92,12 +106,15 @@ export const workoutService = {
     } catch { return null; }
   },
 
-  async generate(): Promise<WorkoutRecord | null> {
+  async generate(): Promise<{ success: boolean; data?: WorkoutRecord; error?: string }> {
     try {
       const res = await fetch(`${BASE}/workout/generate`, { method: 'POST', headers: headers() });
       const json = await res.json();
-      return json.success ? json.data : null;
-    } catch { return null; }
+      if (json.success) return { success: true, data: json.data };
+      return { success: false, error: json.error || 'Unable to generate workout session.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network request failed.' };
+    }
   },
 
   async completeWorkout(id: number, feedback: { energy: number; soreness: number; mood: number; notes?: string }): Promise<WorkoutRecord | null> {
@@ -156,6 +173,18 @@ export const workoutService = {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ targetVersionId }),
+      });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch { return null; }
+  },
+
+  async saveExerciseLog(data: { exerciseName: string; weightKg?: number; barWeightKg?: number; plateWeightKg?: number; repsAchieved: number; isBodyweight?: boolean }): Promise<any> {
+    try {
+      const res = await fetch(`${BASE}/workout/exercise-log`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(data),
       });
       const json = await res.json();
       return json.success ? json.data : null;

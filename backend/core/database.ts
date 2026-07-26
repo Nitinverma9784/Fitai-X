@@ -15,12 +15,14 @@ const memoryDb: {
   exercises: any[];
   recovery_logs: any[];
   chat_messages: any[];
+  exercise_logs: any[];
 } = {
   users: [],
   workouts: [],
   exercises: [],
   recovery_logs: [],
   chat_messages: [],
+  exercise_logs: [],
 };
 
 export function calculateLevelData(xp: number = 0) {
@@ -89,6 +91,7 @@ export async function initDb(): Promise<void> {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT DEFAULT 1;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'male';
       ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS workouts (
@@ -120,6 +123,9 @@ export async function initDb(): Promise<void> {
         rest_sec INT NOT NULL,
         icon VARCHAR(50),
         tip TEXT,
+        target_muscle VARCHAR(255),
+        video_url TEXT,
+        steps TEXT[],
         completed_sets INT DEFAULT 0,
         is_completed BOOLEAN DEFAULT FALSE
       );
@@ -134,6 +140,9 @@ export async function initDb(): Promise<void> {
       ALTER TABLE workouts ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;
       ALTER TABLE workouts ADD COLUMN IF NOT EXISTS readiness_score INT DEFAULT 70;
       ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE exercises ADD COLUMN IF NOT EXISTS video_url TEXT;
+      ALTER TABLE exercises ADD COLUMN IF NOT EXISTS steps TEXT[];
+      ALTER TABLE exercises ADD COLUMN IF NOT EXISTS target_muscle VARCHAR(255);
 
       CREATE TABLE IF NOT EXISTS recovery_logs (
         id SERIAL PRIMARY KEY,
@@ -201,6 +210,27 @@ export const db = {
     return memoryDb.users.find(u => u.id === id) || (memoryDb.users.length > 0 ? memoryDb.users[memoryDb.users.length - 1] : null);
   },
 
+  async awardXp(id: number = 1, xpAmount: number = 15): Promise<any> {
+    const user = await this.getUser(id);
+    const currentXp = (user?.xp || 0) + xpAmount;
+    const levelData = calculateLevelData(currentXp);
+
+    if (postgresActive) {
+      const res = await pool.query(
+        `UPDATE users SET xp = $1, level = $2, level_title = $3 WHERE id = $4 RETURNING *`,
+        [currentXp, levelData.level, levelData.levelTitle, id]
+      );
+      return { user: res.rows[0], xpEarned: xpAmount, levelData };
+    }
+
+    if (user) {
+      user.xp = currentXp;
+      user.level = levelData.level;
+      user.level_title = levelData.levelTitle;
+    }
+    return { user, xpEarned: xpAmount, levelData };
+  },
+
   async getUserByEmail(email: string): Promise<any> {
     if (postgresActive) {
       const res = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
@@ -248,27 +278,29 @@ export const db = {
 
   async saveUserOnboarding(userId: number = 1, onboardingData: any): Promise<any> {
     await this.ensureUserExists(userId);
-    const { name, age, heightCm, weightKg, goal, equipment, injuries, dietPref, timeCommitment } = onboardingData;
+    const { name, gender, age, heightCm, weightKg, goal, equipment, injuries, dietPref, timeCommitment } = onboardingData;
 
     if (postgresActive) {
       const res = await pool.query(
         `
         UPDATE users
         SET name = COALESCE($1, name),
-            age = $2,
-            height_cm = $3,
-            weight_kg = $4,
-            goal = $5,
-            equipment = $6,
-            injuries = $7,
-            diet_pref = $8,
-            time_commitment = $9,
+            gender = $2,
+            age = $3,
+            height_cm = $4,
+            weight_kg = $5,
+            goal = $6,
+            equipment = $7,
+            injuries = $8,
+            diet_pref = $9,
+            time_commitment = $10,
             onboarding_completed = TRUE
-        WHERE id = $10
+        WHERE id = $11
         RETURNING *
       `,
         [
           name || null,
+          gender || 'male',
           age ? parseInt(age, 10) : null,
           heightCm ? parseFloat(heightCm) : null,
           weightKg ? parseFloat(weightKg) : null,
@@ -295,6 +327,7 @@ export const db = {
     Object.assign(user, {
       name: computedName,
       avatar: computedName.slice(0, 2).toUpperCase(),
+      gender: gender || user.gender || 'male',
       age: age ? parseInt(age, 10) : 25,
       height_cm: heightCm ? parseFloat(heightCm) : 175,
       weight_kg: weightKg ? parseFloat(weightKg) : 70,
@@ -357,11 +390,23 @@ export const db = {
       for (const ex of exercises) {
         const eRes = await pool.query(
           `
-          INSERT INTO exercises (workout_id, name, sets, reps, rest_sec, icon, tip, completed_sets)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO exercises (workout_id, name, sets, reps, rest_sec, icon, tip, target_muscle, video_url, steps, completed_sets)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING *
         `,
-          [workout.id, ex.name, ex.sets, ex.reps, ex.restSec || ex.rest_sec || 60, ex.icon || 'dumbbell', ex.tip || '', 0]
+          [
+            workout.id,
+            ex.name,
+            ex.sets,
+            ex.reps,
+            ex.restSec || ex.rest_sec || 60,
+            ex.icon || 'dumbbell',
+            ex.tip || '',
+            ex.targetMuscle || ex.target_muscle || '',
+            ex.videoUrl || ex.video_url || '',
+            ex.steps || [],
+            0
+          ]
         );
         savedExercises.push(eRes.rows[0]);
       }
@@ -402,6 +447,12 @@ export const db = {
       rest_sec: ex.restSec || ex.rest_sec || 60,
       icon: ex.icon || 'dumbbell',
       tip: ex.tip || '',
+      target_muscle: ex.targetMuscle || ex.target_muscle || '',
+      video_url: ex.videoUrl || ex.video_url || '',
+      steps: ex.steps || [],
+      bodymap_male: ex.bodymapMaleUrl || ex.bodymap_male || '',
+      bodymap_female: ex.bodymapFemaleUrl || ex.bodymap_female || '',
+      bodymap_url: ex.bodymap_url || ex.bodymapUrl || ex.bodymapMaleUrl || ex.bodymap_male || '',
       completed_sets: 0,
     }));
 
@@ -477,7 +528,10 @@ export const db = {
       const eRes = await pool.query('SELECT * FROM exercises WHERE workout_id = $1 ORDER BY id ASC', [workout.id]);
       return { ...workout, exercises: eRes.rows };
     }
-    return memoryDb.workouts.find(w => w.user_id === userId && w.session_date === today) || null;
+    const workout = memoryDb.workouts.find(w => w.user_id === userId && w.session_date === today);
+    if (!workout) return null;
+    const exercises = memoryDb.exercises.filter(e => e.workout_id === workout.id);
+    return { ...workout, exercises };
   },
 
   async markMissedWorkoutsBeforeToday(userId: number = 1): Promise<void> {
@@ -559,15 +613,16 @@ export const db = {
   async saveRecoveryLog(userId: number = 1, logData: any): Promise<any> {
     await this.ensureUserExists(userId);
     const { readinessPercentage, statusLabel, description, hrv_ms, sleep_hours, sleep_efficiency, muscle_soreness, hydration_l } = logData;
+    const todayStr = new Date().toISOString().split('T')[0];
 
     if (postgresActive) {
       const res = await pool.query(
         `
-        INSERT INTO recovery_logs (user_id, readiness_percentage, status_label, description, hrv_ms, sleep_hours, sleep_efficiency, muscle_soreness, hydration_l)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO recovery_logs (user_id, readiness_percentage, status_label, description, hrv_ms, sleep_hours, sleep_efficiency, muscle_soreness, hydration_l, log_date)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `,
-        [userId, readinessPercentage, statusLabel, description, hrv_ms || 68, sleep_hours || 8.2, sleep_efficiency || 94, muscle_soreness || 'Low', hydration_l || 2.4]
+        [userId, readinessPercentage, statusLabel, description, hrv_ms || 68, sleep_hours || 7.5, sleep_efficiency || 90, muscle_soreness || 'Low', hydration_l || 2.5, todayStr]
       );
       return res.rows[0];
     }
@@ -579,10 +634,11 @@ export const db = {
       status_label: statusLabel,
       description,
       hrv_ms: hrv_ms || 68,
-      sleep_hours: sleep_hours || 8.2,
-      sleep_efficiency: sleep_efficiency || 94,
+      sleep_hours: sleep_hours || 7.5,
+      sleep_efficiency: sleep_efficiency || 90,
       muscle_soreness: muscle_soreness || 'Low',
-      hydration_l: hydration_l || 2.4,
+      hydration_l: hydration_l || 2.5,
+      log_date: todayStr,
       created_at: new Date(),
     };
     memoryDb.recovery_logs.unshift(log);
@@ -595,6 +651,14 @@ export const db = {
       return res.rows[0] || null;
     }
     return memoryDb.recovery_logs[0] || null;
+  },
+
+  async getRecoveryHistory(userId: number = 1, limit: number = 14): Promise<any[]> {
+    if (postgresActive) {
+      const res = await pool.query('SELECT * FROM recovery_logs WHERE user_id = $1 ORDER BY id DESC LIMIT $2', [userId, limit]);
+      return res.rows;
+    }
+    return (memoryDb.recovery_logs || []).filter(r => r.user_id === userId).slice(0, limit);
   },
 
   async saveChatMessage(userId: number = 1, sender: string, text: string): Promise<any> {
@@ -661,9 +725,13 @@ export const db = {
     const completedWorkouts = history.filter((w: any) => w.status === 'completed').length;
 
     let currentStreak = 0;
-    for (const d of streakDays) {
-      if (d.status === 'completed') currentStreak++;
-      else if (d.status === 'missed') break;
+    const sortedStreakDays = [...streakDays].reverse();
+    for (const d of sortedStreakDays) {
+      if (d.status === 'completed') {
+        currentStreak++;
+      } else if (d.status === 'missed') {
+        break;
+      }
     }
 
     const xp = user?.xp || 0;
@@ -755,5 +823,53 @@ export const db = {
       levelData,
       achievements,
     };
+  },
+
+  async saveExerciseLog(userId: number = 1, data: { exerciseName: string; weightKg?: number; barWeightKg?: number; plateWeightKg?: number; repsAchieved: number; isBodyweight?: boolean }): Promise<any> {
+    const bar = data.barWeightKg || 0;
+    const plate = data.plateWeightKg || 0;
+    const totalWeight = data.weightKg || (bar + plate);
+    const isBw = !!data.isBodyweight;
+
+    if (postgresActive) {
+      const res = await pool.query(
+        `INSERT INTO exercise_logs (user_id, exercise_name, weight_kg, bar_weight_kg, plate_weight_kg, reps_achieved, is_bodyweight)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [userId, data.exerciseName, totalWeight, bar, plate, data.repsAchieved, isBw]
+      );
+      return res.rows[0];
+    }
+    const log = {
+      id: (memoryDb as any).exercise_logs ? (memoryDb as any).exercise_logs.length + 1 : 1,
+      user_id: userId,
+      exercise_name: data.exerciseName,
+      weight_kg: totalWeight,
+      bar_weight_kg: bar,
+      plate_weight_kg: plate,
+      reps_achieved: data.repsAchieved,
+      is_bodyweight: isBw,
+      logged_at: new Date(),
+    };
+    if (!(memoryDb as any).exercise_logs) (memoryDb as any).exercise_logs = [];
+    (memoryDb as any).exercise_logs.unshift(log);
+    return log;
+  },
+
+  async getUserExerciseLogs(userId: number = 1, limit: number = 20): Promise<any[]> {
+    if (postgresActive) {
+      const res = await pool.query(
+        `SELECT DISTINCT ON (exercise_name) * FROM exercise_logs WHERE user_id = $1 ORDER BY exercise_name, logged_at DESC LIMIT $2`,
+        [userId, limit]
+      );
+      return res.rows;
+    }
+    const logs = (memoryDb as any).exercise_logs || [];
+    const map = new Map<string, any>();
+    for (const log of logs) {
+      if (log.user_id === userId && !map.has(log.exercise_name.toLowerCase())) {
+        map.set(log.exercise_name.toLowerCase(), log);
+      }
+    }
+    return Array.from(map.values()).slice(0, limit);
   },
 };

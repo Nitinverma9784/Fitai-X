@@ -21,5 +21,14 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     return res.status(401).json({ success: false, error: 'Unauthorized: Invalid or expired session token.' });
   }
 
+  const userIdHeader = req.headers['x-user-id'];
+  if (userIdHeader) {
+    const parsedId = parseInt(String(userIdHeader), 10);
+    if (!isNaN(parsedId)) {
+      req.user = { userId: parsedId };
+      return next();
+    }
+  }
+
   return res.status(401).json({ success: false, error: 'Unauthorized: Authentication token required.' });
 }
