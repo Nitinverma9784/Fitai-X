@@ -12,9 +12,9 @@ import {
   Image,
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
-import { groqService, UserProfile, WorkoutPlan, UserStatsResponse } from '@/services/groqService';
+import { groqService, UserProfile, WorkoutPlan, UserStatsResponse, NutritionPlan } from '@/services/groqService';
 import { workoutService, TodayState } from '@/services/workoutService';
 import {
   BellIcon, SparklesIcon, ArrowForwardCircleIcon,
@@ -50,6 +50,7 @@ export default function DashboardScreen() {
   const [latestWorkout, setLatestWorkout] = useState<WorkoutPlan | null>(null);
   const [statsData, setStatsData] = useState<UserStatsResponse | null>(null);
   const [todayState, setTodayState] = useState<TodayState | null>(null);
+  const [nutritionPlan, setNutritionPlan] = useState<NutritionPlan | null>(null);
   const [checkinVisible, setCheckinVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
@@ -59,31 +60,46 @@ export default function DashboardScreen() {
   (todayState?.streak || []).forEach(s => {
     if (s.status === 'completed') loggedDatesSet.add(s.date);
   });
-  // Ensure today's date is also in logged set if today's workout is done
   const todayStr = new Date().toISOString().split('T')[0];
-  if (todayState?.scenario === 'HAS_WORKOUT_TODAY' && todayState?.workout?.status === 'completed') {
+  const hasWorkoutToday = todayState?.workout?.status === 'completed';
+  const mealsToday = nutritionPlan?.todayLogs || [];
+  const hasMealsToday = mealsToday.length > 0;
+
+  if (hasWorkoutToday || hasMealsToday) {
     loggedDatesSet.add(todayStr);
   }
 
   const handleSelectDate = (dateStr: string) => {
     setSelectedDate(dateStr);
-    const isLogged = loggedDatesSet.has(dateStr) || dateStr === todayStr;
+    const isLogged = loggedDatesSet.has(dateStr);
 
     if (isLogged) {
+      const isToday = dateStr === todayStr;
+      const todayMeals = isToday ? mealsToday : [];
+      const hasMeals = todayMeals.length > 0;
+      const hasWorkout = isToday ? hasWorkoutToday : true;
+
+      let totalProtein = 0;
+      let totalCals = 0;
+      todayMeals.forEach((m: any) => {
+        totalProtein += parseFloat(m.protein_g) || 0;
+        totalCals += parseFloat(m.calories) || 0;
+      });
+
       setSummaryData({
         dateStr,
         hasData: true,
-        workoutTitle: latestWorkout ? latestWorkout.title : 'Chest & Triceps Hypertrophy',
+        hasWorkout,
+        hasMeals,
+        hasRecoveryMetrics: false,
+        workoutTitle: latestWorkout ? latestWorkout.title : 'Workout Session Completed',
         durationMinutes: latestWorkout ? latestWorkout.durationMinutes : 45,
         calories: latestWorkout ? latestWorkout.estimatedCalories : 380,
         exercises: (latestWorkout?.exercises || []).map(e => ({ name: e.name, sets: e.sets, reps: e.reps })),
-        sleepHours: 7.5,
-        sleepEfficiency: 90,
-        hrvMs: 65,
-        hydrationL: 2.5,
-        soreness: 'Low',
-        readinessPercentage: 90,
-        aiSummary: `On ${dateStr}, your bio-readiness hit 90% with 7.5h sleep. Progressive overload target met cleanly.`,
+        mealsLoggedCount: todayMeals.length,
+        totalProteinLogged: Math.round(totalProtein),
+        totalCaloriesLogged: Math.round(totalCals),
+        aiSummary: `On ${dateStr}, your logged activities (${hasWorkout ? 'workout' : ''}${hasWorkout && hasMeals ? ' & ' : ''}${hasMeals ? `${todayMeals.length} meal(s)` : ''}) were recorded successfully.`,
       });
     } else {
       setSummaryData({
@@ -97,24 +113,20 @@ export default function DashboardScreen() {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, w, stats, today] = await Promise.all([
+      const [u, w, stats, today, nut] = await Promise.all([
         groqService.getUserProfile(),
         groqService.getLatestWorkout(),
         groqService.getUserStats(),
         workoutService.getToday(),
+        groqService.getNutritionPlan(),
       ]);
       setUser(u);
       setLatestWorkout(w);
       setStatsData(stats);
       setTodayState(today);
-
-      const todayKey = 'checkin_' + new Date().toISOString().split('T')[0];
-      if (typeof window !== 'undefined' && window.sessionStorage && !window.sessionStorage.getItem(todayKey)) {
-        setCheckinVisible(true);
-        window.sessionStorage.setItem(todayKey, 'true');
-      }
+      setNutritionPlan(nut);
     } catch {
-      // Handled cleanly
+      // Clean error handle
     } finally {
       setLoading(false);
     }
@@ -123,6 +135,13 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Re-fetch dashboard data whenever screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [loadDashboardData])
+  );
 
   const bmi = calcBMI(user?.weight_kg, user?.height_cm);
   const caloriesFromWorkout = latestWorkout?.estimatedCalories ?? 420;
@@ -228,44 +247,19 @@ export default function DashboardScreen() {
             <View style={styles.emptyIcon}>
               <BarbellIcon size={32} color={Colors.gold} />
             </View>
-            <Text style={styles.emptyTitle}>Ready for your first AI workout?</Text>
-            <Text style={styles.emptyDesc}>
-              Goal: <Text style={{ color: Colors.gold, fontWeight: '700' }}>{user?.goal || 'Set in onboarding'}</Text>
-              {' • '}Equipment: <Text style={{ color: Colors.gold, fontWeight: '700' }}>{user?.equipment || 'Set in onboarding'}</Text>
-            </Text>
+            <Text style={styles.emptyTitle}>No Active Workout Plan</Text>
+            <Text style={styles.emptySub}>Generate your first AI-customized hypertrophy session.</Text>
             <TouchableOpacity
-              style={styles.generateBtn}
-              onPress={() => router.push('/(tabs)/workout')}
-              testID="generate-workout-btn"
-              activeOpacity={0.85}>
-              <SparklesIcon size={16} color="#0A0A0A" />
-              <Text style={styles.generateBtnText}>Generate Custom AI Workout</Text>
+              style={styles.emptyBtn}
+              onPress={() => router.push('/(tabs)/workout')}>
+              <Text style={styles.emptyBtnText}>Generate Plan Now ➔</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Daily Overview */}
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Daily Overview</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/analytics')}>
-            <Text style={styles.seeAll}>Analytics →</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.grid2}>
-          {/* Body Weight */}
-          <View style={styles.statCard}>
-            <View style={styles.statTop}>
-              <Text style={styles.statLabel}>Body Weight</Text>
-              <ScaleIcon size={16} color={Colors.gold} />
-            </View>
-            <Text style={styles.statVal}>
-              {user?.weight_kg ?? '75'}<Text style={styles.statSmall}> kg</Text>
-            </Text>
-            <Text style={styles.statSub}>Goal: {user?.goal?.slice(0, 16) || 'Muscle Building'}</Text>
-          </View>
-
-          {/* Active Burn */}
+        {/* Dynamic Key Performance Metrics Row */}
+        <View style={styles.statsRow}>
+          {/* Active Calories Burned */}
           <View style={styles.statCard}>
             <View style={styles.statTop}>
               <Text style={styles.statLabel}>Active Burn</Text>
@@ -356,9 +350,9 @@ export default function DashboardScreen() {
           <Text style={styles.versionShortcutArrow}>➔</Text>
         </TouchableOpacity>
 
-        {/* Dashboard Interactive Calendar & Performance Inspector */}
+        {/* Dashboard Performance Calendar */}
         <View style={{ marginTop: 14, marginBottom: 20 }}>
-          <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Interactive Performance Calendar</Text>
+          <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Performance Calendar</Text>
           <CalendarComponent
             loggedDates={loggedDatesSet}
             onSelectDate={handleSelectDate}
@@ -380,70 +374,70 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
   contentContainer: { paddingBottom: 100 },
-  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 14 },
+
+  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
   greetingSub: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
   userName: { fontSize: 22, fontWeight: '800', color: Colors.text, marginTop: 2 },
-  topActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, position: 'relative' },
-  bellBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: Colors.red, width: 15, height: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  bellBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 14, fontWeight: '800', color: '#0A0A0A' },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.card2, borderWidth: 1, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 13, fontWeight: '800', color: Colors.gold },
+
   loadingBox: { padding: 40, alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 12, color: Colors.text2 },
-  heroCard: { backgroundColor: Colors.card, borderRadius: Radii.xxl, padding: 20, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.borderLight },
-  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  heroTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.gold, paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radii.full },
-  heroTagText: { fontSize: 10, fontWeight: '800', color: '#0A0A0A', letterSpacing: 0.5 },
-  heroTitle: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: 4 },
-  heroSub: { fontSize: 13, color: Colors.text2, marginBottom: 16 },
+
+  heroCard: { backgroundColor: Colors.card, borderRadius: Radii.xxl, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: Colors.borderLight },
+  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  heroTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.gold, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radii.full },
+  heroTagText: { fontSize: 10, fontWeight: '900', color: '#0A0A0A', letterSpacing: 0.8 },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, marginBottom: 4 },
+  heroSub: { fontSize: 12, color: Colors.text2, fontWeight: '600', marginBottom: 14 },
   heroMetaRow: { flexDirection: 'row', gap: 16 },
   heroMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroMetaText: { fontSize: 12, fontWeight: '700', color: Colors.text },
-  emptyCard: { backgroundColor: Colors.card, borderRadius: Radii.xxl, padding: 24, alignItems: 'center', marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
-  emptyIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: Colors.text, marginBottom: 6, textAlign: 'center' },
-  emptyDesc: { fontSize: 12.5, color: Colors.text2, textAlign: 'center', marginBottom: 16 },
-  generateBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.gold, paddingHorizontal: 20, paddingVertical: 12, borderRadius: Radii.md },
-  generateBtnText: { fontSize: 13.5, fontWeight: '800', color: '#0A0A0A' },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  seeAll: { fontSize: 12, fontWeight: '700', color: Colors.gold },
-  grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: Spacing.md },
-  statCard: { width: '48%', backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14, borderWidth: 1, borderColor: Colors.border },
-  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  statLabel: { fontSize: 11, fontWeight: '600', color: Colors.text2 },
-  statVal: { fontSize: 20, fontWeight: '800', color: Colors.text },
-  statSmall: { fontSize: 12, color: Colors.text2, fontWeight: '600' },
-  statSub: { fontSize: 10.5, color: Colors.text2, marginTop: 4, fontWeight: '600' },
-  card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 16, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
-  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  streakBadgeText: { fontSize: 10, fontWeight: '800', color: Colors.amberGold },
-  goalItem: { marginBottom: 14 },
-  goalTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  goalName: { fontSize: 12, fontWeight: '700', color: Colors.text2 },
-  goalPercent: { fontSize: 12, fontWeight: '800', color: Colors.gold },
-  track: { height: 8, backgroundColor: Colors.card2, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 4 },
-  streakDaysRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  streakDayItem: { alignItems: 'center', gap: 4 },
-  streakDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center' },
-  streakDotDone: { backgroundColor: Colors.gold },
-  streakDotText: { fontSize: 11, fontWeight: '800', color: Colors.text2 },
-  streakDotTextDone: { color: '#0A0A0A' },
-  streakDayLabel: { fontSize: 9.5, color: Colors.text2, fontWeight: '700' },
+  heroMetaText: { fontSize: 11.5, fontWeight: '700', color: Colors.text2 },
 
-  versionShortcutCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14,
-    marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.borderLight,
-  },
+  emptyCard: { backgroundColor: Colors.card, borderRadius: Radii.xxl, padding: 24, marginBottom: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  emptyIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: 4 },
+  emptySub: { fontSize: 12, color: Colors.text2, textAlign: 'center', marginBottom: 16 },
+  emptyBtn: { backgroundColor: Colors.gold, paddingHorizontal: 18, paddingVertical: 10, borderRadius: Radii.md },
+  emptyBtnText: { fontSize: 12, fontWeight: '800', color: '#0A0A0A' },
+
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  statCard: { flex: 1, backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  statLabel: { fontSize: 10.5, color: Colors.text2, fontWeight: '700' },
+  statVal: { fontSize: 17, fontWeight: '800', color: Colors.text },
+  statSmall: { fontSize: 11, color: Colors.text2, fontWeight: '600' },
+  statSub: { fontSize: 9.5, color: Colors.text2, marginTop: 2, fontWeight: '600' },
+
+  card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: Colors.border },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,196,0,0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radii.full, borderWidth: 1, borderColor: 'rgba(245,196,0,0.25)' },
+  streakBadgeText: { fontSize: 9.5, fontWeight: '800', color: Colors.amberGold },
+
+  goalItem: { marginBottom: 12 },
+  goalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  goalName: { fontSize: 12.5, fontWeight: '700', color: Colors.text },
+  goalPercent: { fontSize: 11, fontWeight: '700', color: Colors.gold },
+  track: { height: 6, backgroundColor: Colors.card2, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 3 },
+
+  streakDaysRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border },
+  streakDayItem: { alignItems: 'center', gap: 4 },
+  streakDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  streakDotDone: { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  streakDotText: { fontSize: 11, color: Colors.text2 },
+  streakDotTextDone: { color: '#0A0A0A', fontWeight: '800' },
+  streakDayLabel: { fontSize: 10, color: Colors.text2, fontWeight: '700' },
+
+  sectionHead: { marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+
+  versionShortcutCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14, marginTop: 4, borderWidth: 1, borderColor: Colors.border },
   versionShortcutLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   versionIconBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  versionShortcutTitle: { fontSize: 13.5, fontWeight: '800', color: Colors.text },
-  versionShortcutSub: { fontSize: 11, color: Colors.text2, marginTop: 1 },
+  versionShortcutTitle: { fontSize: 13, fontWeight: '800', color: Colors.text, marginBottom: 2 },
+  versionShortcutSub: { fontSize: 10.5, color: Colors.text2 },
   versionShortcutArrow: { fontSize: 16, fontWeight: '800', color: Colors.gold },
 });
-

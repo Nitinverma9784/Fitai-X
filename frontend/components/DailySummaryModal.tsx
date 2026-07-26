@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 export interface DailySummaryData {
   dateStr: string;
   hasData: boolean;
+  hasWorkout?: boolean;
+  hasRecoveryMetrics?: boolean;
+  hasMeals?: boolean;
   workoutTitle?: string;
   durationMinutes?: number;
   calories?: number;
@@ -24,6 +27,9 @@ export interface DailySummaryData {
   soreness?: string;
   readinessPercentage?: number;
   aiSummary?: string;
+  mealsLoggedCount?: number;
+  totalProteinLogged?: number;
+  totalCaloriesLogged?: number;
 }
 
 interface DailySummaryModalProps {
@@ -39,6 +45,10 @@ export function DailySummaryModal({ visible, data, onClose }: DailySummaryModalP
   const dateFormatted = !isNaN(dateObj.getTime())
     ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : data.dateStr;
+
+  const showWorkout = !!data.hasWorkout || !!data.workoutTitle;
+  const showRecovery = !!data.hasRecoveryMetrics && data.sleepHours !== undefined;
+  const showMeals = !!data.hasMeals && (data.mealsLoggedCount || 0) > 0;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -57,21 +67,21 @@ export function DailySummaryModal({ visible, data, onClose }: DailySummaryModalP
           <Text style={s.title}>{dateFormatted}</Text>
 
           <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-            {data.hasData ? (
+            {data.hasData && (showWorkout || showRecovery || showMeals) ? (
               <>
-                {/* AI Daily Performance Summary */}
+                {/* AI Daily Performance Synthesis */}
                 <View style={s.aiBox}>
                   <Text style={s.aiBoxTitle}>🤖 AI DAILY PERFORMANCE SYNTHESIS</Text>
                   <Text style={s.aiBoxDesc}>
-                    {data.aiSummary || `On ${dateFormatted}, you achieved a ${data.readinessPercentage || 88}% bio-readiness score with ${data.sleepHours || 7.5} hours of sleep and completed your planned session.`}
+                    {data.aiSummary || `On ${dateFormatted}, your logged performance metrics were saved successfully.`}
                   </Text>
                 </View>
 
-                {/* Workout Section */}
-                {data.workoutTitle ? (
+                {/* Workout Section — Only if workout logged */}
+                {showWorkout && (
                   <View style={s.sectionBox}>
                     <Text style={s.sectionLabel}>COMPLETED WORKOUT SESSION</Text>
-                    <Text style={s.workoutTitle}>{data.workoutTitle}</Text>
+                    <Text style={s.workoutTitle}>{data.workoutTitle || 'Custom Hypertrophy Workout'}</Text>
                     <View style={s.metaRow}>
                       <Text style={s.metaText}>⏱️ {data.durationMinutes || 45} mins</Text>
                       <Text style={s.metaText}>🔥 {data.calories || 380} kcal</Text>
@@ -89,42 +99,57 @@ export function DailySummaryModal({ visible, data, onClose }: DailySummaryModalP
                       </View>
                     )}
                   </View>
-                ) : null}
+                )}
 
-                {/* Logged Bio-Metrics */}
-                <Text style={s.sectionLabel}>RECORDED BIO-RECOVERY METRICS</Text>
-                <View style={s.grid2}>
-                  <View style={s.miniCard}>
-                    <Text style={s.miniLabel}>Sleep Duration</Text>
-                    <Text style={s.miniVal}>{data.sleepHours || 7.5} <Text style={s.miniUnit}>hrs</Text></Text>
-                    <Text style={s.miniSub}>{data.sleepEfficiency || 90}% Efficiency</Text>
-                  </View>
+                {/* Logged Bio-Metrics — Only if bio recovery metrics logged */}
+                {showRecovery && (
+                  <>
+                    <Text style={s.sectionLabel}>RECORDED BIO-RECOVERY METRICS</Text>
+                    <View style={s.grid2}>
+                      <View style={s.miniCard}>
+                        <Text style={s.miniLabel}>Sleep Duration</Text>
+                        <Text style={s.miniVal}>{data.sleepHours} <Text style={s.miniUnit}>hrs</Text></Text>
+                        <Text style={s.miniSub}>{data.sleepEfficiency || 90}% Efficiency</Text>
+                      </View>
 
-                  <View style={s.miniCard}>
-                    <Text style={s.miniLabel}>Wearable HRV</Text>
-                    <Text style={s.miniVal}>{data.hrvMs || 65} <Text style={s.miniUnit}>ms</Text></Text>
-                    <Text style={s.miniSub}>Heart Rate Score</Text>
-                  </View>
+                      <View style={s.miniCard}>
+                        <Text style={s.miniLabel}>Wearable HRV</Text>
+                        <Text style={s.miniVal}>{data.hrvMs || 65} <Text style={s.miniUnit}>ms</Text></Text>
+                        <Text style={s.miniSub}>Heart Rate Score</Text>
+                      </View>
 
-                  <View style={s.miniCard}>
-                    <Text style={s.miniLabel}>Hydration Intake</Text>
-                    <Text style={s.miniVal}>{data.hydrationL || 2.5} <Text style={s.miniUnit}>L</Text></Text>
-                    <Text style={s.miniSub}>Water Logged</Text>
-                  </View>
+                      <View style={s.miniCard}>
+                        <Text style={s.miniLabel}>Hydration Intake</Text>
+                        <Text style={s.miniVal}>{data.hydrationL || 2.5} <Text style={s.miniUnit}>L</Text></Text>
+                        <Text style={s.miniSub}>Water Logged</Text>
+                      </View>
 
-                  <View style={s.miniCard}>
-                    <Text style={s.miniLabel}>Muscle Soreness</Text>
-                    <Text style={s.miniVal}>{data.soreness || 'Low'}</Text>
-                    <Text style={s.miniSub}>Athlete Rating</Text>
+                      <View style={s.miniCard}>
+                        <Text style={s.miniLabel}>Muscle Soreness</Text>
+                        <Text style={s.miniVal}>{data.soreness || 'Low'}</Text>
+                        <Text style={s.miniSub}>Athlete Rating</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {/* Logged Meals Summary — Only if meals logged */}
+                {showMeals && (
+                  <View style={s.sectionBox}>
+                    <Text style={s.sectionLabel}>DAILY MEALS LOGGED ({data.mealsLoggedCount})</Text>
+                    <View style={s.metaRow}>
+                      <Text style={s.metaText}>💪 {data.totalProteinLogged || 0}g Protein</Text>
+                      <Text style={s.metaText}>🔥 {data.totalCaloriesLogged || 0} kcal</Text>
+                    </View>
                   </View>
-                </View>
+                )}
               </>
             ) : (
               <View style={s.emptyBox}>
                 <Ionicons name="calendar-outline" size={28} color={Colors.text2} style={{ marginBottom: 8 }} />
                 <Text style={s.emptyTitle}>No Data Logged On This Date</Text>
                 <Text style={s.emptySub}>
-                  No workout logs or bio-recovery metrics were recorded on {dateFormatted}.
+                  You didn't log any workouts, meals, or bio-recovery metrics on {dateFormatted}.
                 </Text>
               </View>
             )}
@@ -148,33 +173,33 @@ const s = StyleSheet.create({
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '800', color: Colors.text, marginBottom: 14 },
 
-  aiBox: { backgroundColor: 'rgba(245,196,0,0.08)', borderRadius: Radii.md, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(245,196,0,0.2)' },
-  aiBoxTitle: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.5, marginBottom: 4 },
-  aiBoxDesc: { fontSize: 12, color: Colors.text, lineHeight: 18 },
+  aiBox: { backgroundColor: 'rgba(245,196,0,0.08)', borderRadius: Radii.md, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(245,196,0,0.2)' },
+  aiBoxTitle: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, marginBottom: 4, letterSpacing: 0.5 },
+  aiBoxDesc: { fontSize: 12, color: Colors.text, lineHeight: 17 },
 
-  sectionLabel: { fontSize: 10.5, fontWeight: '800', color: Colors.text2, letterSpacing: 0.8, marginBottom: 8, marginTop: 4 },
-  sectionBox: { backgroundColor: Colors.card, borderRadius: Radii.md, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: Colors.border },
+  sectionLabel: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 8, marginTop: 4 },
+  sectionBox: { backgroundColor: Colors.card, borderRadius: Radii.md, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
   workoutTitle: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 6 },
-  metaRow: { flexDirection: 'row', gap: 12, marginBottom: 10 },
-  metaText: { fontSize: 12, fontWeight: '700', color: Colors.gold },
+  metaRow: { flexDirection: 'row', gap: 14, marginBottom: 10 },
+  metaText: { fontSize: 12, fontWeight: '700', color: Colors.text2 },
 
-  exerciseList: { gap: 6 },
-  exerciseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: Colors.border },
-  exerciseNum: { fontSize: 11, fontWeight: '800', color: Colors.gold, width: 16 },
-  exerciseName: { fontSize: 12, fontWeight: '700', color: Colors.text, flex: 1 },
+  exerciseList: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 },
+  exerciseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  exerciseNum: { width: 18, fontSize: 11, fontWeight: '800', color: Colors.gold },
+  exerciseName: { flex: 1, fontSize: 12, color: Colors.text, fontWeight: '600' },
   exerciseMeta: { fontSize: 11, color: Colors.text2, fontWeight: '600' },
 
-  grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   miniCard: { width: '48%', backgroundColor: Colors.card, borderRadius: Radii.md, padding: 12, borderWidth: 1, borderColor: Colors.border },
-  miniLabel: { fontSize: 10.5, color: Colors.text2, fontWeight: '700' },
-  miniVal: { fontSize: 16, fontWeight: '800', color: Colors.text, marginVertical: 2 },
-  miniUnit: { fontSize: 10, color: Colors.text2 },
-  miniSub: { fontSize: 9.5, color: Colors.text2 },
+  miniLabel: { fontSize: 10.5, color: Colors.text2, fontWeight: '600', marginBottom: 2 },
+  miniVal: { fontSize: 16, fontWeight: '800', color: Colors.text },
+  miniUnit: { fontSize: 11, color: Colors.gold, fontWeight: '700' },
+  miniSub: { fontSize: 9.5, color: Colors.text2, marginTop: 2 },
 
-  emptyBox: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, marginVertical: 10 },
-  emptyTitle: { fontSize: 14, fontWeight: '800', color: Colors.text, marginBottom: 4 },
-  emptySub: { fontSize: 12, color: Colors.text2, textAlign: 'center', lineHeight: 18 },
+  emptyBox: { padding: 40, alignItems: 'center' },
+  emptyTitle: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 4 },
+  emptySub: { fontSize: 12, color: Colors.text2, textAlign: 'center', lineHeight: 17 },
 
-  closeActionBtn: { backgroundColor: Colors.card2, borderRadius: Radii.md, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  closeActionText: { fontSize: 13, fontWeight: '800', color: Colors.text },
+  closeActionBtn: { backgroundColor: Colors.gold, borderRadius: Radii.md, paddingVertical: 14, alignItems: 'center', marginTop: 10 },
+  closeActionText: { fontSize: 13, fontWeight: '900', color: '#0A0A0A' },
 });

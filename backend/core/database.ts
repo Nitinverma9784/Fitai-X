@@ -181,6 +181,18 @@ export async function initDb(): Promise<void> {
         log_date DATE DEFAULT CURRENT_DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS exercise_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        exercise_name VARCHAR(255) NOT NULL,
+        weight_kg NUMERIC(6,2) DEFAULT 0,
+        bar_weight_kg NUMERIC(6,2) DEFAULT 0,
+        plate_weight_kg NUMERIC(6,2) DEFAULT 0,
+        reps_achieved INT DEFAULT 0,
+        is_bodyweight BOOLEAN DEFAULT FALSE,
+        logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     client.release();
@@ -936,11 +948,15 @@ export const db = {
 
   async getUserExerciseLogs(userId: number = 1, limit: number = 20): Promise<any[]> {
     if (postgresActive) {
-      const res = await pool.query(
-        `SELECT DISTINCT ON (exercise_name) * FROM exercise_logs WHERE user_id = $1 ORDER BY exercise_name, logged_at DESC LIMIT $2`,
-        [userId, limit]
-      );
-      return res.rows;
+      try {
+        const res = await pool.query(
+          `SELECT DISTINCT ON (exercise_name) * FROM exercise_logs WHERE user_id = $1 ORDER BY exercise_name, logged_at DESC LIMIT $2`,
+          [userId, limit]
+        );
+        return res.rows;
+      } catch {
+        return [];
+      }
     }
     const logs = (memoryDb as any).exercise_logs || [];
     const map = new Map<string, any>();

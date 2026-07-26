@@ -123,7 +123,7 @@ export default function SplashScreen() {
           resizeMode="contain"
         />
         <Animated.Text style={[styles.tagline, { opacity: tagOpacity }]}>
-          TRAIN SMARTER. NOT HARDER.
+          TRAIN. RECOVER. CONQUER.
         </Animated.Text>
       </Animated.View>
 
