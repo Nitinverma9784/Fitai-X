@@ -231,20 +231,24 @@ router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, re
     const userId = req.user?.userId || 1;
     const { mealType = 'Breakfast', foodItem = '100g raw daal', proteinG: preProtein, carbsG: preCarbs, fatsG: preFats, calories: preCals } = req.body;
 
-    // If frontend sends pre-calculated macros (from /calculate-macros step), use them directly
-    let proteinG = typeof preProtein === 'number' ? preProtein : 24;
-    let carbsG = typeof preCarbs === 'number' ? preCarbs : 60;
-    let fatsG = typeof preFats === 'number' ? preFats : 2;
-    let calories = typeof preCals === 'number' ? preCals : 340;
+    let proteinG = preProtein !== undefined && preProtein !== null ? parseFloat(preProtein) : NaN;
+    let carbsG = preCarbs !== undefined && preCarbs !== null ? parseFloat(preCarbs) : NaN;
+    let fatsG = preFats !== undefined && preFats !== null ? parseFloat(preFats) : NaN;
+    let calories = preCals !== undefined && preCals !== null ? parseFloat(preCals) : NaN;
 
-    // If no pre-calculated macros provided, run AI estimation as fallback
-    if (typeof preProtein !== 'number') {
+    // If pre-calculated macros were not provided or invalid, run AI calculation dynamically
+    if (isNaN(proteinG)) {
+      proteinG = 24;
+      carbsG = 60;
+      fatsG = 2;
+      calories = 340;
+
       const { client } = getNextGroqClient();
       if (client) {
         try {
-          const sysPrompt = `You are FitAI Indian & Global Macro Estimation Engine. Calculate macros for Indian/global food. Respond in JSON: { "proteinG": number, "carbsG": number, "fatsG": number, "calories": number }`;
+          const sysPrompt = `You are FitAI Indian & Global Macro Estimation Engine. Calculate exact protein (g), carbs (g), fats (g), and total calories for any Indian or global food item. Respond strictly in JSON: { "proteinG": number, "carbsG": number, "fatsG": number, "calories": number }`;
           const groqRes = await client.chat.completions.create({
-            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: `Calculate macros for: "${foodItem}"` }],
+            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: `Calculate macros for: "${foodItem}" logged under ${mealType}` }],
             model: config.defaultModel,
             temperature: 0.2,
             response_format: { type: 'json_object' },
@@ -262,7 +266,11 @@ router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, re
       }
     }
 
-    // Save logged meal to DB
+    if (isNaN(carbsG)) carbsG = 0;
+    if (isNaN(fatsG)) fatsG = 0;
+    if (isNaN(calories)) calories = Math.round(proteinG * 4 + carbsG * 4 + fatsG * 9);
+
+    // Save logged meal to DB with exact numbers
     const savedMeal = await db.logMeal(userId, { mealType, foodItem, proteinG, carbsG, fatsG, calories });
 
     // Award +3 XP for meal logging
