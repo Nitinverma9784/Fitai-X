@@ -13,8 +13,6 @@ function AiTabButton({ onPress, ...props }: any) {
       onPress={onPress}
       activeOpacity={0.85}
       style={[props.style, fab.wrapper]}>
-      {/* Notch plate — covers tab bar border, creates curved arch around button */}
-      <View style={fab.notchPlate} />
       <View style={fab.outerRing}>
         <View style={fab.inner}>
           <MaterialCommunityIcons name="brain" size={28} color="#0A0A0A" />
@@ -27,40 +25,29 @@ function AiTabButton({ onPress, ...props }: any) {
 const fab = StyleSheet.create({
   wrapper: {
     flex: 1,
-    top: -22,
+    top: -18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notchPlate: {
-    position: 'absolute',
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#0A0A0A',      // same as tab bar bg — erases the border line
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 214, 10, 0.18)',  // slightly brighter than border to show the arch
-    bottom: -20,                      // slightly lower
-    alignSelf: 'center',
-  },
   outerRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(245,196,0,0.18)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(245,196,0,0.2)',
     borderWidth: 2,
-    borderColor: 'rgba(245,196,0,0.45)',
+    borderColor: 'rgba(245,196,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.gold,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.55,
-    shadowRadius: 14,
-    elevation: 14,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   inner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
@@ -82,16 +69,12 @@ export default function TabLayout() {
           tabBarInactiveTintColor: Colors.text2,
           tabBarStyle: {
             backgroundColor: '#0A0A0A',
-            borderTopColor: Colors.border,
+            borderTopColor: '#1F1F1F',
             borderTopWidth: 1,
-            height: Platform.OS === 'ios' ? 88 : 68,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-            paddingTop: 8,
-            elevation: 10,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.5,
-            shadowRadius: 10,
+            height: Platform.OS === 'ios' ? 84 : 64,
+            paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+            paddingTop: 6,
+            elevation: 0,
           },
           tabBarLabelStyle: {
             fontSize: 10.5,
@@ -120,7 +103,7 @@ export default function TabLayout() {
           }}
         />
 
-        {/* Centre AI FAB — custom button intercepts press, opens modal instead of navigating */}
+        {/* Centre AI FAB */}
         <Tabs.Screen
           name="nutrition"
           options={{
@@ -153,7 +136,6 @@ export default function TabLayout() {
           }}
         />
 
-        {/* Analytics hidden from nav — accessible via Profile */}
         <Tabs.Screen
           name="analytics"
           options={{

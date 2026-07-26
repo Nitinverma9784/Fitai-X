@@ -81,6 +81,7 @@ export interface NutritionPlan {
     cals: string;
     desc: string;
   }[];
+  todayLogs?: any[];
 }
 
 export interface GroceryList {
@@ -277,6 +278,34 @@ export const groqService = {
   async getNutritionPlan(): Promise<NutritionPlan | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/nutrition/plan`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async regenerateNutritionPlan(dietPref?: string): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/nutrition/plan/regenerate`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ dietPref }),
+      });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async logMeal(mealType: string, foodItem: string): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/nutrition/log-meal`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ mealType, foodItem }),
+      });
       const json = await res.json();
       return json.success ? json.data : null;
     } catch {

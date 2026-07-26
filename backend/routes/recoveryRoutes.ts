@@ -46,9 +46,9 @@ router.post('/insights', authenticateToken, async (req: AuthenticatedRequest, re
       hydration_l: hydrationL,
     });
 
-    const xpResult = await db.awardXp(userId, 15);
+    const xpResult = await db.awardXp(userId, 5);
 
-    res.json({ success: true, data: { ...score, log: savedLog, xpEarned: 15, levelData: xpResult.levelData } });
+    res.json({ success: true, data: { ...score, log: savedLog, xpEarned: 5, levelData: xpResult.levelData } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

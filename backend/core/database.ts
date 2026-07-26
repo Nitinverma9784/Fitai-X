@@ -16,6 +16,8 @@ const memoryDb: {
   recovery_logs: any[];
   chat_messages: any[];
   exercise_logs: any[];
+  diet_plans: any[];
+  meal_logs: any[];
 } = {
   users: [],
   workouts: [],
@@ -23,6 +25,8 @@ const memoryDb: {
   recovery_logs: [],
   chat_messages: [],
   exercise_logs: [],
+  diet_plans: [],
+  meal_logs: [],
 };
 
 export function calculateLevelData(xp: number = 0) {
@@ -158,11 +162,23 @@ export async function initDb(): Promise<void> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE IF NOT EXISTS chat_messages (
+      CREATE TABLE IF NOT EXISTS diet_plans (
+        id SERIAL PRIMARY KEY,
+        user_id INT UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        plan_data JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS meal_logs (
         id SERIAL PRIMARY KEY,
         user_id INT REFERENCES users(id) ON DELETE CASCADE,
-        sender VARCHAR(50) NOT NULL,
-        text TEXT NOT NULL,
+        meal_type VARCHAR(50) NOT NULL,
+        food_item VARCHAR(255) NOT NULL,
+        protein_g NUMERIC(6,2) DEFAULT 0,
+        carbs_g NUMERIC(6,2) DEFAULT 0,
+        fats_g NUMERIC(6,2) DEFAULT 0,
+        calories NUMERIC(6,2) DEFAULT 0,
+        log_date DATE DEFAULT CURRENT_DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -853,6 +869,69 @@ export const db = {
     if (!(memoryDb as any).exercise_logs) (memoryDb as any).exercise_logs = [];
     (memoryDb as any).exercise_logs.unshift(log);
     return log;
+  },
+
+  async getDietPlan(userId: number = 1): Promise<any> {
+    if (postgresActive) {
+      const res = await pool.query(`SELECT * FROM diet_plans WHERE user_id = $1 ORDER BY id DESC LIMIT 1`, [userId]);
+      return res.rows[0]?.plan_data || null;
+    }
+    const record = memoryDb.diet_plans.find(d => d.user_id === userId);
+    return record?.plan_data || null;
+  },
+
+  async saveDietPlan(userId: number = 1, planData: any): Promise<any> {
+    if (postgresActive) {
+      const res = await pool.query(
+        `INSERT INTO diet_plans (user_id, plan_data, updated_at) VALUES ($1, $2, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET plan_data = EXCLUDED.plan_data, updated_at = NOW() RETURNING *`,
+        [userId, JSON.stringify(planData)]
+      );
+      return res.rows[0]?.plan_data;
+    }
+    const existing = memoryDb.diet_plans.find(d => d.user_id === userId);
+    if (existing) {
+      existing.plan_data = planData;
+      existing.updated_at = new Date();
+    } else {
+      memoryDb.diet_plans.push({ id: memoryDb.diet_plans.length + 1, user_id: userId, plan_data: planData, updated_at: new Date() });
+    }
+    return planData;
+  },
+
+  async logMeal(userId: number = 1, meal: { mealType: string; foodItem: string; proteinG: number; carbsG: number; fatsG: number; calories: number }): Promise<any> {
+    const today = new Date().toISOString().split('T')[0];
+    if (postgresActive) {
+      const res = await pool.query(
+        `INSERT INTO meal_logs (user_id, meal_type, food_item, protein_g, carbs_g, fats_g, calories, log_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [userId, meal.mealType, meal.foodItem, meal.proteinG, meal.carbsG, meal.fatsG, meal.calories, today]
+      );
+      return res.rows[0];
+    }
+    const newLog = {
+      id: memoryDb.meal_logs.length + 1,
+      user_id: userId,
+      meal_type: meal.mealType,
+      food_item: meal.foodItem,
+      protein_g: meal.proteinG,
+      carbs_g: meal.carbsG,
+      fats_g: meal.fatsG,
+      calories: meal.calories,
+      log_date: today,
+      created_at: new Date(),
+    };
+    memoryDb.meal_logs.unshift(newLog);
+    return newLog;
+  },
+
+  async getMealLogs(userId: number = 1, dateStr?: string): Promise<any[]> {
+    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    if (postgresActive) {
+      const res = await pool.query(`SELECT * FROM meal_logs WHERE user_id = $1 AND log_date = $2 ORDER BY id DESC`, [userId, targetDate]);
+      return res.rows;
+    }
+    return memoryDb.meal_logs.filter(m => m.user_id === userId && m.log_date === targetDate);
   },
 
   async getUserExerciseLogs(userId: number = 1, limit: number = 20): Promise<any[]> {

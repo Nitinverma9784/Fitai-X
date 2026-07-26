@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Modal,
@@ -14,7 +15,6 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
@@ -193,8 +193,8 @@ function AIGenerationModal({ visible, lastWorkout }: AIGenerationModalProps) {
       detail: soreness >= 4
         ? 'High soreness detected -> Lowering working sets & adding rest intervals'
         : energy >= 4
-        ? 'High energy reported -> Applying progressive overload & target intensity'
-        : 'Calibrating exercise selection for current recovery state...',
+          ? 'High energy reported -> Applying progressive overload & target intensity'
+          : 'Calibrating exercise selection for current recovery state...',
     },
     {
       title: 'Finalizing Customized Exercises & Form Tips',
@@ -369,11 +369,11 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
   const steps = (exercise.steps && exercise.steps.length > 0)
     ? exercise.steps
     : [
-        'Setup with proper posture and core engaged.',
-        'Perform movement through full range of motion.',
-        'Squeeze target muscle at peak contraction.',
-        'Control lowering phase under strict tempo.'
-      ];
+      'Setup with proper posture and core engaged.',
+      'Perform movement through full range of motion.',
+      'Squeeze target muscle at peak contraction.',
+      'Control lowering phase under strict tempo.'
+    ];
 
   const targetMuscle = exercise.target_muscle || exercise.targetMuscle || 'Target Muscle';
 
@@ -564,7 +564,7 @@ const evmS = StyleSheet.create({
   badgeGoldText: { fontSize: 9.5, fontWeight: '700', color: Colors.text2 },
   title: { fontSize: 18, fontWeight: '800', color: Colors.text },
   closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  
+
   videoBox: { position: 'relative', width: '100%', height: 210, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1A1A1A', marginBottom: 14, justifyContent: 'center', alignItems: 'center' },
   loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#141414', zIndex: 10, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontSize: 12, fontWeight: '700', color: Colors.gold, letterSpacing: 0.5 },
@@ -911,7 +911,7 @@ export default function WorkoutScreen() {
                 key={String(ex.id)}
                 exercise={ex}
                 index={i}
-                onToggle={scenario === 'COMPLETED_TODAY' ? () => {} : handleToggleExercise}
+                onToggle={scenario === 'COMPLETED_TODAY' ? () => { } : handleToggleExercise}
                 onSelect={(selected) => setSelectedExercise(selected)}
               />
             ))}
@@ -972,7 +972,7 @@ export default function WorkoutScreen() {
 const s = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
-  content: { paddingBottom: 110 },
+  content: { paddingBottom: 100 },
 
   topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
   kicker: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },

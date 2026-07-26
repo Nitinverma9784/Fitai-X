@@ -377,10 +377,10 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
   contentContainer: { paddingBottom: 100 },
-  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
+  topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 14 },
   greetingSub: { fontSize: 10.5, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
   userName: { fontSize: 22, fontWeight: '800', color: Colors.text, marginTop: 2 },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },

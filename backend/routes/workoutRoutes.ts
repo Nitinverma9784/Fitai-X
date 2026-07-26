@@ -200,11 +200,13 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
 // ─── MARK WORKOUT COMPLETE ───────────────────────────────────────────────────
 router.post('/:id/complete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.user?.userId || 1;
     const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const workoutId = parseInt(String(rawId), 10);
     const { energy = 3, soreness = 3, mood = 3, notes = '' } = req.body;
     const result = await db.markWorkoutComplete(workoutId, { energy, soreness, mood, notes });
-    res.json({ success: true, data: result });
+    const xpResult = await db.awardXp(userId, 5);
+    res.json({ success: true, data: { ...result, xpEarned: 5, levelData: xpResult.levelData } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
