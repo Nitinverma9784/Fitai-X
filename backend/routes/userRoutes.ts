@@ -34,4 +34,25 @@ router.put('/profile', authenticateToken, async (req: AuthenticatedRequest, res:
   }
 });
 
+router.get('/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const statsData = await db.getUserStatsAndAchievements(userId);
+    res.json({ success: true, data: statsData });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/award-xp', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const { amount = 20 } = req.body;
+    const result = await db.addXp(userId, parseInt(String(amount), 10) || 20);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

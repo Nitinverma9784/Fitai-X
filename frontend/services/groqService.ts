@@ -43,45 +43,8 @@ function headers(extra?: Record<string, string>): Record<string, string> {
   return baseHeaders;
 }
 
-export interface UserProfile {
-  id: number;
-  name: string;
-  email: string;
-  avatar: string;
-  tier: string;
-  goal?: string;
-  weight_kg?: number;
-  height_cm?: number;
-  body_fat_pct?: number;
-  age?: number;
-  equipment?: string;
-  injuries?: string[];
-  diet_pref?: string;
-  time_commitment?: string;
-  onboarding_completed?: boolean;
-  auth_provider?: string;
-}
-
-export interface WorkoutPlan {
-  id?: number;
-  title: string;
-  durationMinutes: number;
-  estimatedCalories: number;
-  targetMuscles: string[];
-  whyRecommendation: string;
-  created_at?: string;
-  exercises: {
-    id: string | number;
-    name: string;
-    sets: number;
-    reps: string;
-    restSec: number;
-    rest_sec?: number;
-    icon: string;
-    tip: string;
-    completed_sets?: number;
-  }[];
-}
+import { UserProfile, UserAchievement, UserStatsResponse, WorkoutPlan } from '@/types/user';
+export { UserProfile, UserAchievement, UserStatsResponse, WorkoutPlan };
 
 export interface RecoveryInsights {
   readinessPercentage: number;
@@ -168,6 +131,29 @@ export const groqService = {
   async getUserProfile(): Promise<UserProfile | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/user/profile`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+  async getUserStats(): Promise<UserStatsResponse | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/stats`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async awardXp(amount: number = 20): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/award-xp`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ amount }),
+      });
       const json = await res.json();
       return json.success ? json.data : null;
     } catch {

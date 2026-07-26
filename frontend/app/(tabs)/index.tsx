@@ -13,13 +13,14 @@ import {
 } from 'react-native';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import { AIChatModal } from '@/components/AIChatModal';
+
 import { groqService, UserProfile, WorkoutPlan } from '@/services/groqService';
 import {
   BellIcon, SparklesIcon, ArrowForwardCircleIcon,
   TimeIcon, FlameIcon, DumbbellIcon,
   ScaleIcon, BodyIcon, StopwatchIcon, BarbellIcon,
 } from '@/components/icons/SvgIcons';
+import { QuickAccessCards } from '@/components/QuickAccessCards';
 
 function calcBMI(weight?: number, height?: number): string {
   if (!weight || !height || height === 0) return '--';
@@ -38,7 +39,7 @@ function bmiLabel(bmi: string): string {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [chatVisible, setChatVisible] = useState(false);
+
   const [tourVisible, setTourVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -256,6 +257,12 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Quick Access — Analytics & Nutrition shortcuts */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+        </View>
+        <QuickAccessCards />
+
         {/* Workout Version Control Direct Shortcut Card */}
         <TouchableOpacity
           style={styles.versionShortcutCard}
@@ -274,22 +281,13 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Floating AI Chat FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.85}
-        testID="fab-chat"
-        onPress={() => setChatVisible(true)}>
-        <SparklesIcon size={24} color="#0A0A0A" />
-      </TouchableOpacity>
 
-      <AIChatModal visible={chatVisible} onClose={() => setChatVisible(false)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
   contentContainer: { paddingBottom: 100 },
   topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.md },
@@ -346,14 +344,7 @@ const styles = StyleSheet.create({
   streakDotText: { fontSize: 11, fontWeight: '800', color: Colors.text2 },
   streakDotTextDone: { color: '#0A0A0A' },
   streakDayLabel: { fontSize: 9.5, color: Colors.text2, fontWeight: '700' },
-  fab: {
-    position: 'absolute', bottom: 24, right: 20,
-    width: 54, height: 54, borderRadius: 27,
-    backgroundColor: Colors.gold,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 8, shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
-  },
+
   versionShortcutCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14,

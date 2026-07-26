@@ -52,6 +52,7 @@ export interface WorkoutRecord {
   feedback_mood?: number;
   feedback_notes?: string;
   adaptations?: string[];
+  analysis_steps?: string[];
   exercises: WorkoutExercise[];
   created_at: string;
 }

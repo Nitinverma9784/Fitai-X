@@ -23,6 +23,41 @@ const memoryDb: {
   chat_messages: [],
 };
 
+export function calculateLevelData(xp: number = 0) {
+  const safeXp = Math.max(0, xp || 0);
+
+  let level = Math.floor((1 + Math.sqrt(1 + (8 * safeXp) / 50)) / 2);
+  level = Math.max(1, Math.min(100, level));
+
+  const xpCurrentLevelStart = 50 * level * (level - 1);
+  const xpNextLevelStart = 50 * (level + 1) * level;
+  const xpNeeded = xpNextLevelStart - xpCurrentLevelStart;
+  const xpInCurrentLevel = safeXp - xpCurrentLevelStart;
+  const progressPct = level >= 100 ? 100 : Math.min(100, Math.max(0, Math.round((xpInCurrentLevel / xpNeeded) * 100)));
+
+  let title = 'Novice Trainee';
+  if (level >= 100) title = 'FitAI GODMODE';
+  else if (level >= 75) title = 'FitAI Elite Apex';
+  else if (level >= 50) title = 'Grandmaster Legend';
+  else if (level >= 30) title = 'Diamond Master';
+  else if (level >= 20) title = 'Platinum Titan';
+  else if (level >= 15) title = 'Gold Contender';
+  else if (level >= 10) title = 'Silver Lifter';
+  else if (level >= 5) title = 'Bronze Athlete';
+
+  return {
+    xp: safeXp,
+    level,
+    levelTitle: title,
+    xpCurrentLevelStart,
+    xpNextLevelStart,
+    xpInCurrentLevel,
+    xpNeeded,
+    progressPct,
+    xpToNextLevel: Math.max(0, xpNextLevelStart - safeXp),
+  };
+}
+
 export async function initDb(): Promise<void> {
   try {
     const client = await pool.connect();
@@ -52,6 +87,8 @@ export async function initDb(): Promise<void> {
       );
 
       ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT DEFAULT 1;
       ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS workouts (
@@ -297,16 +334,21 @@ export const db = {
 
   async saveWorkout(userId: number = 1, workoutData: any): Promise<any> {
     await this.ensureUserExists(userId);
-    const { title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation, exercises } = workoutData;
+    const {
+      title, durationMinutes, estimatedCalories, targetMuscles,
+      whyRecommendation, aiReasoning, readinessScore, adaptations, analysisSteps, exercises,
+    } = workoutData;
+
+    const today = new Date().toISOString().split('T')[0];
 
     if (postgresActive) {
       const wRes = await pool.query(
         `
-        INSERT INTO workouts (user_id, title, duration_minutes, estimated_calories, target_muscles, why_recommendation)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO workouts (user_id, title, duration_minutes, estimated_calories, target_muscles, why_recommendation, ai_reasoning, readiness_score, session_date)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `,
-        [userId, title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation]
+        [userId, title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation, aiReasoning || '', readinessScore || 75, today]
       );
 
       const workout = wRes.rows[0];
@@ -324,7 +366,12 @@ export const db = {
         savedExercises.push(eRes.rows[0]);
       }
 
-      return { ...workout, exercises: savedExercises };
+      return {
+        ...workout,
+        adaptations: adaptations || [],
+        analysis_steps: analysisSteps || [],
+        exercises: savedExercises,
+      };
     }
 
     const newId = memoryDb.workouts.length + 1;
@@ -336,6 +383,12 @@ export const db = {
       estimated_calories: estimatedCalories,
       target_muscles: targetMuscles,
       why_recommendation: whyRecommendation,
+      ai_reasoning: aiReasoning || '',
+      readiness_score: readinessScore || 75,
+      adaptations: adaptations || [],
+      analysis_steps: analysisSteps || [],
+      session_date: today,
+      status: 'pending',
       created_at: new Date(),
     };
     memoryDb.workouts.unshift(workout);
@@ -442,6 +495,7 @@ export const db = {
   },
 
   async markWorkoutComplete(workoutId: number, feedback: { energy: number; soreness: number; mood: number; notes?: string }): Promise<any> {
+    let completedWorkout: any = null;
     if (postgresActive) {
       const res = await pool.query(
         `UPDATE workouts
@@ -450,11 +504,16 @@ export const db = {
          WHERE id = $1 RETURNING *`,
         [workoutId, feedback.energy, feedback.soreness, feedback.mood, feedback.notes || '']
       );
-      return res.rows[0] || null;
+      completedWorkout = res.rows[0] || null;
+    } else {
+      const w = memoryDb.workouts.find(w => w.id === workoutId);
+      if (w) { Object.assign(w, { status: 'completed', completed_at: new Date(), ...feedback }); }
+      completedWorkout = w || null;
     }
-    const w = memoryDb.workouts.find(w => w.id === workoutId);
-    if (w) { Object.assign(w, { status: 'completed', completed_at: new Date(), ...feedback }); }
-    return w || null;
+    if (completedWorkout?.user_id) {
+      await this.addXp(completedWorkout.user_id, 20);
+    }
+    return completedWorkout;
   },
 
   async markWorkoutMissed(workoutId: number): Promise<any> {
@@ -567,5 +626,134 @@ export const db = {
       return res.rows;
     }
     return memoryDb.chat_messages;
+  },
+
+  async addXp(userId: number = 1, amount: number = 20): Promise<{ user: any; levelData: any; xpAdded: number }> {
+    await this.ensureUserExists(userId);
+    let user: any = null;
+    if (postgresActive) {
+      const res = await pool.query(
+        `UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2 RETURNING *`,
+        [amount, userId]
+      );
+      user = res.rows[0];
+      const levelData = calculateLevelData(user.xp || 0);
+      await pool.query(`UPDATE users SET level = $1 WHERE id = $2`, [levelData.level, userId]);
+      user.level = levelData.level;
+      return { user, levelData, xpAdded: amount };
+    }
+    user = memoryDb.users.find(u => u.id === userId);
+    if (user) {
+      user.xp = (user.xp || 0) + amount;
+      const levelData = calculateLevelData(user.xp);
+      user.level = levelData.level;
+      return { user, levelData, xpAdded: amount };
+    }
+    return { user: null, levelData: calculateLevelData(0), xpAdded: 0 };
+  },
+
+  async getUserStatsAndAchievements(userId: number = 1) {
+    const user = await this.getUser(userId);
+    const history = await this.getWorkoutHistory(userId, 500);
+    const streakDays = await this.getWorkoutStreak(userId, 30);
+
+    const totalWorkouts = history.length;
+    const completedWorkouts = history.filter((w: any) => w.status === 'completed').length;
+
+    let currentStreak = 0;
+    for (const d of streakDays) {
+      if (d.status === 'completed') currentStreak++;
+      else if (d.status === 'missed') break;
+    }
+
+    const xp = user?.xp || 0;
+    const levelData = calculateLevelData(xp);
+
+    const achievements = [
+      {
+        id: 'first_workout',
+        emoji: '🎬',
+        name: 'First Blood',
+        description: 'Complete your first workout session',
+        unlocked: completedWorkouts >= 1,
+        current: Math.min(completedWorkouts, 1),
+        target: 1,
+        progressPct: Math.min(100, Math.round((completedWorkouts / 1) * 100)),
+      },
+      {
+        id: 'streak_5',
+        emoji: '🔥',
+        name: '5-Day Momentum',
+        description: 'Maintain a 5-day workout streak',
+        unlocked: currentStreak >= 5,
+        current: currentStreak,
+        target: 5,
+        progressPct: Math.min(100, Math.round((currentStreak / 5) * 100)),
+      },
+      {
+        id: 'streak_10',
+        emoji: '⚡',
+        name: '10-Day Streak Master',
+        description: 'Consistency record — 10 days active',
+        unlocked: currentStreak >= 10,
+        current: currentStreak,
+        target: 10,
+        progressPct: Math.min(100, Math.round((currentStreak / 10) * 100)),
+      },
+      {
+        id: 'level_5',
+        emoji: '🥉',
+        name: 'Bronze Athlete',
+        description: 'Reach Level 5 in FitAI Gamification',
+        unlocked: levelData.level >= 5,
+        current: levelData.level,
+        target: 5,
+        progressPct: Math.min(100, Math.round((levelData.level / 5) * 100)),
+      },
+      {
+        id: 'workouts_25',
+        emoji: '🏋️',
+        name: '25 Workouts Milestone',
+        description: 'Log 25 completed workout sessions',
+        unlocked: completedWorkouts >= 25,
+        current: completedWorkouts,
+        target: 25,
+        progressPct: Math.min(100, Math.round((completedWorkouts / 25) * 100)),
+      },
+      {
+        id: 'workouts_100',
+        emoji: '🏆',
+        name: '100 Workouts Club',
+        description: 'Complete 100 full workout sessions',
+        unlocked: completedWorkouts >= 100,
+        current: completedWorkouts,
+        target: 100,
+        progressPct: Math.min(100, Math.round((completedWorkouts / 100) * 100)),
+      },
+      {
+        id: 'xp_1000',
+        emoji: '⭐',
+        name: '1,000 XP Veteran',
+        description: 'Earn 1,000 total Experience Points',
+        unlocked: xp >= 1000,
+        current: xp,
+        target: 1000,
+        progressPct: Math.min(100, Math.round((xp / 1000) * 100)),
+      },
+    ];
+
+    return {
+      user: { ...user, ...levelData },
+      stats: {
+        totalWorkouts,
+        completedWorkouts,
+        currentStreak,
+        xp: levelData.xp,
+        level: levelData.level,
+        levelTitle: levelData.levelTitle,
+      },
+      levelData,
+      achievements,
+    };
   },
 };

@@ -6,12 +6,15 @@ import { Platform, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { AIChatModal } from '@/components/AIChatModal';
 
 // ─── FAB AI Button (centre slot) ─────────────────────────────────────────────
-function AiTabButton({ onPress }: { onPress: () => void }) {
+function AiTabButton({ onPress, ...props }: any) {
   return (
     <TouchableOpacity
+      {...props}
       onPress={onPress}
       activeOpacity={0.85}
-      style={fab.wrapper}>
+      style={[props.style, fab.wrapper]}>
+      {/* Notch plate — covers tab bar border, creates curved arch around button */}
+      <View style={fab.notchPlate} />
       <View style={fab.outerRing}>
         <View style={fab.inner}>
           <MaterialCommunityIcons name="brain" size={28} color="#0A0A0A" />
@@ -23,9 +26,21 @@ function AiTabButton({ onPress }: { onPress: () => void }) {
 
 const fab = StyleSheet.create({
   wrapper: {
+    flex: 1,
     top: -22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  notchPlate: {
+    position: 'absolute',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#0A0A0A',      // same as tab bar bg — erases the border line
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 214, 10, 0.18)',  // slightly brighter than border to show the arch
+    bottom: -20,                      // slightly lower
+    alignSelf: 'center',
   },
   outerRing: {
     width: 64,
@@ -112,17 +127,9 @@ export default function TabLayout() {
             title: '',
             tabBarLabel: () => null,
             tabBarIcon: () => null,
-            tabBarButton: () => (
-              <AiTabButton onPress={() => setShowAiChat(true)} />
+            tabBarButton: (props) => (
+              <AiTabButton {...props} onPress={() => setShowAiChat(true)} />
             ),
-          }}
-        />
-
-        {/* Analytics hidden from nav — accessible via Profile */}
-        <Tabs.Screen
-          name="analytics"
-          options={{
-            tabBarButton: () => null,
           }}
         />
 
@@ -143,6 +150,14 @@ export default function TabLayout() {
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
             ),
+          }}
+        />
+
+        {/* Analytics hidden from nav — accessible via Profile */}
+        <Tabs.Screen
+          name="analytics"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

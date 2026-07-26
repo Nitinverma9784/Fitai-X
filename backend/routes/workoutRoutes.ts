@@ -107,6 +107,10 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
       estimatedCalories: plan.estimatedCalories,
       targetMuscles: plan.targetMuscles,
       whyRecommendation: plan.whyRecommendation,
+      aiReasoning: plan.aiReasoning,
+      readinessScore: plan.readinessScore,
+      adaptations: plan.adaptations,
+      analysisSteps: plan.analysisSteps,
       exercises: plan.exercises.map(e => ({
         name: e.name,
         sets: e.sets,
@@ -114,22 +118,9 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
         restSec: e.restSec,
         icon: e.icon,
         tip: e.tip,
+        targetMuscle: e.targetMuscle,
       })),
     });
-
-    // Update AI reasoning and readiness score
-    if (db.isPostgresConnected() && savedWorkout?.id) {
-      try {
-        const { Pool } = await import('pg');
-        // Use pool directly for extra columns
-        const pool = new (require('pg').Pool)({ connectionString: require('../core/config').config.dbUrl });
-        await pool.query(
-          `UPDATE workouts SET session_date = $1, ai_reasoning = $2, readiness_score = $3, status = 'pending' WHERE id = $4`,
-          [today, plan.aiReasoning, plan.readinessScore, savedWorkout.id]
-        );
-        await pool.end();
-      } catch { /* non-critical */ }
-    }
 
     // Commit to version control
     const exercises = plan.exercises.map((e, i) => ({
@@ -172,7 +163,8 @@ router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, re
 // ─── MARK WORKOUT COMPLETE ───────────────────────────────────────────────────
 router.post('/:id/complete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const workoutId = parseInt(req.params.id, 10);
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const workoutId = parseInt(String(rawId), 10);
     const { energy = 3, soreness = 3, mood = 3, notes = '' } = req.body;
     const result = await db.markWorkoutComplete(workoutId, { energy, soreness, mood, notes });
     res.json({ success: true, data: result });
@@ -184,7 +176,8 @@ router.post('/:id/complete', authenticateToken, async (req: AuthenticatedRequest
 // ─── MARK WORKOUT MISSED ─────────────────────────────────────────────────────
 router.post('/:id/miss', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const workoutId = parseInt(req.params.id, 10);
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const workoutId = parseInt(String(rawId), 10);
     const result = await db.markWorkoutMissed(workoutId);
     res.json({ success: true, data: result });
   } catch (err: any) {
@@ -195,7 +188,8 @@ router.post('/:id/miss', authenticateToken, async (req: AuthenticatedRequest, re
 // ─── TOGGLE EXERCISE COMPLETION ──────────────────────────────────────────────
 router.put('/exercise/:id/toggle', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const exerciseId = parseInt(req.params.id, 10);
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const exerciseId = parseInt(String(rawId), 10);
     const { isCompleted } = req.body;
     const result = await db.toggleExerciseCompletion(exerciseId, !!isCompleted);
     res.json({ success: true, data: result });

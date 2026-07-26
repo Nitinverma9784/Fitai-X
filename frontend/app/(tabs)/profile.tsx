@@ -15,7 +15,7 @@ import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { groqService, UserProfile } from '@/services/groqService';
+import { groqService, UserProfile, UserStatsResponse } from '@/services/groqService';
 import { sessionService } from '@/services/sessionService';
 import {
   EditIcon, DumbbellIcon, FlameIcon, StarIcon,
@@ -27,6 +27,7 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [statsData, setStatsData] = useState<UserStatsResponse | null>(null);
   const [voiceGuidance, setVoiceGuidance] = useState(true);
   const [haptics, setHaptics] = useState(true);
   const [syncWearable, setSyncWearable] = useState(false);
@@ -34,11 +35,17 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      async function loadProfile() {
-        const u = await groqService.getUserProfile();
-        if (u) setUser(u);
+      async function loadProfileData() {
+        const data = await groqService.getUserStats();
+        if (data) {
+          setStatsData(data);
+          setUser(data.user);
+        } else {
+          const u = await groqService.getUserProfile();
+          if (u) setUser(u);
+        }
       }
-      loadProfile();
+      loadProfileData();
     }, [])
   );
 
@@ -49,6 +56,15 @@ export default function ProfileScreen() {
 
   const isAvatarUrl = user?.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'));
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'FitAI Member');
+  const level = statsData?.levelData?.level ?? user?.level ?? 1;
+  const levelTitle = statsData?.levelData?.levelTitle ?? user?.levelTitle ?? 'Novice Trainee';
+  const currentXp = statsData?.levelData?.xp ?? user?.xp ?? 0;
+  const progressPct = statsData?.levelData?.progressPct ?? 0;
+  const xpNeeded = statsData?.levelData?.xpNeeded ?? 100;
+  const xpInLevel = statsData?.levelData?.xpInCurrentLevel ?? 0;
+
+  const completedWorkouts = statsData?.stats?.completedWorkouts ?? 0;
+  const currentStreak = statsData?.stats?.currentStreak ?? 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -59,7 +75,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
 
-        {/* 1. Top Header Card matching profile.html */}
+        {/* 1. Top Header Card */}
         <View style={styles.headerCard}>
           <View style={styles.topNavRow}>
             <TouchableOpacity style={styles.navBtn} activeOpacity={0.7} onPress={() => router.back()}>
@@ -99,39 +115,61 @@ export default function ProfileScreen() {
 
               <View style={styles.badgeRow}>
                 <View style={styles.proBadge}>
-                  <Text style={styles.proBadgeText}>FitAI Member</Text>
+                  <Text style={styles.proBadgeText}>LVL {level} • {levelTitle}</Text>
                 </View>
                 <View style={styles.verifiedBadge}>
                   <View style={styles.verifiedDot} />
-                  <Text style={styles.verifiedText}>Verified</Text>
+                  <Text style={styles.verifiedText}>Active</Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
 
-        {/* 2. 3-Stat Grid Cards matching profile.html */}
+        {/* 2. Gamification XP Level Card */}
+        <View style={styles.xpCard}>
+          <View style={styles.xpHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ZapIcon size={16} color={Colors.gold} />
+              <Text style={styles.xpTitle}>GAMIFICATION LEVEL {level}/100</Text>
+            </View>
+            <Text style={styles.xpVal}>{currentXp} XP</Text>
+          </View>
+
+          <Text style={styles.xpSub}>{levelTitle} • {xpInLevel} / {xpNeeded} XP to Level {Math.min(100, level + 1)}</Text>
+
+          <View style={styles.xpTrack}>
+            <View style={[styles.xpFill, { width: `${progressPct}%` as any }]} />
+          </View>
+
+          <View style={styles.xpFooter}>
+            <Text style={styles.xpHint}>⚡ Earn +20 XP for every completed workout, exercise, or task</Text>
+            <Text style={styles.xpPct}>{progressPct}%</Text>
+          </View>
+        </View>
+
+        {/* 3. Real Stats Grid Cards */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <DumbbellIcon size={18} color={Colors.gold} />
-            <Text style={styles.statNumber}>127</Text>
+            <Text style={styles.statNumber}>{completedWorkouts}</Text>
             <Text style={styles.statLabel}>Workouts</Text>
           </View>
 
           <View style={styles.statCard}>
             <FlameIcon size={18} color={Colors.amberGold} />
-            <Text style={styles.statNumber}>12d</Text>
+            <Text style={styles.statNumber}>{currentStreak}d</Text>
             <Text style={styles.statLabel}>Streak</Text>
           </View>
 
           <View style={styles.statCard}>
-            <TargetIcon size={18} color={Colors.green} />
-            <Text style={styles.statNumber}>24</Text>
-            <Text style={styles.statLabel}>Friends</Text>
+            <StarIcon size={18} color={Colors.green} />
+            <Text style={styles.statNumber}>{currentXp}</Text>
+            <Text style={styles.statLabel}>Total XP</Text>
           </View>
         </View>
 
-        {/* 3. Fitness Profile Card matching profile.html */}
+        {/* 4. Fitness Profile Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Fitness Profile</Text>
 
@@ -146,17 +184,9 @@ export default function ProfileScreen() {
           <View style={styles.infoRow}>
             <View style={styles.infoLeft}>
               <StarIcon size={14} color={Colors.text2} />
-              <Text style={styles.infoLabel}>Level</Text>
+              <Text style={styles.infoLabel}>Rank / Tier</Text>
             </View>
-            <Text style={styles.infoVal}>{user?.tier || 'Intermediate'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <CalendarIcon size={14} color={Colors.text2} />
-              <Text style={styles.infoLabel}>Experience</Text>
-            </View>
-            <Text style={styles.infoVal}>4 years</Text>
+            <Text style={styles.infoVal}>Level {level} • {levelTitle}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -187,38 +217,41 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 4. Achievements & Milestones Card matching profile.html */}
+        {/* 5. Achievements & Milestones Card (Dynamic from DB) */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Achievements & Milestones</Text>
 
-          <View style={styles.achieveRow}>
-            <View style={styles.achieveIconBox}>
-              <Text style={styles.emojiIcon}>🏆</Text>
-            </View>
-            <View style={styles.achieveInfo}>
-              <Text style={styles.achieveName}>100 Workouts Club</Text>
-              <Text style={styles.achieveSub}>Completed 100 sessions</Text>
-            </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>Unlocked</Text>
-            </View>
-          </View>
-
-          <View style={[styles.achieveRow, { borderBottomWidth: 0 }]}>
-            <View style={styles.achieveIconBox}>
-              <Text style={styles.emojiIcon}>🔥</Text>
-            </View>
-            <View style={styles.achieveInfo}>
-              <Text style={styles.achieveName}>10-Day Streak Master</Text>
-              <Text style={styles.achieveSub}>Consistency record hit</Text>
-            </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>Unlocked</Text>
-            </View>
-          </View>
+          {(statsData?.achievements || []).map((ach, idx) => {
+            const isLast = idx === (statsData?.achievements || []).length - 1;
+            return (
+              <View key={ach.id} style={[styles.achieveRow, isLast && { borderBottomWidth: 0 }]}>
+                <View style={[styles.achieveIconBox, !ach.unlocked && styles.achieveIconBoxLocked]}>
+                  <Text style={styles.emojiIcon}>{ach.emoji}</Text>
+                </View>
+                <View style={styles.achieveInfo}>
+                  <Text style={[styles.achieveName, !ach.unlocked && { opacity: 0.7 }]}>{ach.name}</Text>
+                  <Text style={styles.achieveSub}>{ach.description}</Text>
+                  {!ach.unlocked && (
+                    <View style={styles.achieveBarTrack}>
+                      <View style={[styles.achieveBarFill, { width: `${ach.progressPct}%` as any }]} />
+                    </View>
+                  )}
+                </View>
+                {ach.unlocked ? (
+                  <View style={styles.statusPill}>
+                    <Text style={styles.statusPillText}>Unlocked</Text>
+                  </View>
+                ) : (
+                  <View style={styles.statusPillLocked}>
+                    <Text style={styles.statusPillLockedText}>{ach.current}/{ach.target}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
 
-        {/* 5. Preferences & Hardware List Card matching profile.html */}
+        {/* 6. Preferences & Hardware List Card */}
         <View style={styles.cardList}>
           <Text style={styles.cardTitlePadding}>Preferences & Hardware</Text>
 
@@ -267,24 +300,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ── Quick Access: Nutrition & Analytics ── */}
-        <View style={styles.cardList}>
-          <Text style={styles.cardTitlePadding}>Tools & Insights</Text>
-
-          <TouchableOpacity style={styles.listRow} activeOpacity={0.8} onPress={() => router.push('/(tabs)/nutrition')}>
-            <Ionicons name="restaurant-outline" size={18} color={Colors.text2} />
-            <Text style={styles.rowLabel}>Nutrition Tracker</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.listRow, { borderBottomWidth: 0 }]} activeOpacity={0.8} onPress={() => router.push('/(tabs)/analytics')}>
-            <Ionicons name="stats-chart-outline" size={18} color={Colors.text2} />
-            <Text style={styles.rowLabel}>Analytics & Progress</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
-          </TouchableOpacity>
-        </View>
-
-        {/* 6. Log Out Button matching profile.html */}
+        {/* 7. Log Out Button */}
         <TouchableOpacity
           style={styles.logoutBtn}
           activeOpacity={0.8}
@@ -299,7 +315,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
   container: { flex: 1 },
   contentContainer: { paddingBottom: 100 },
 
@@ -512,6 +528,27 @@ const styles = StyleSheet.create({
     color: Colors.gold,
   },
 
+  // XP Level Card
+  xpCard: {
+    backgroundColor: '#141008',
+    borderRadius: Radii.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 196, 0, 0.28)',
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  xpHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  xpTitle: { fontSize: 10, fontWeight: '900', color: Colors.gold, letterSpacing: 0.8 },
+  xpVal: { fontSize: 13, fontWeight: '900', color: Colors.gold },
+  xpSub: { fontSize: 11.5, fontWeight: '700', color: Colors.text, marginBottom: 10 },
+  xpTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+  xpFill: { height: '100%', backgroundColor: Colors.gold, borderRadius: 4 },
+  xpFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  xpHint: { fontSize: 10, color: Colors.text2 },
+  xpPct: { fontSize: 10, fontWeight: '800', color: Colors.gold },
+
   // Achievements
   achieveRow: {
     flexDirection: 'row',
@@ -531,6 +568,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  achieveIconBoxLocked: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    opacity: 0.6,
+  },
   emojiIcon: {
     fontSize: 16,
   },
@@ -547,6 +589,18 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     marginTop: 2,
   },
+  achieveBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 2,
+    marginTop: 5,
+    overflow: 'hidden',
+  },
+  achieveBarFill: {
+    height: '100%',
+    backgroundColor: Colors.gold,
+    borderRadius: 2,
+  },
   statusPill: {
     backgroundColor: 'rgba(163, 230, 53, 0.12)',
     paddingHorizontal: 8,
@@ -557,6 +611,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: Colors.green,
+  },
+  statusPillLocked: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  statusPillLockedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.text2,
   },
   statusPillActive: {
     backgroundColor: 'rgba(245, 196, 0, 0.15)',

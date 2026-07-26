@@ -158,6 +158,145 @@ function FeedbackModal({ visible, onSubmit, onSkip }: FeedbackModalProps) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// AI GENERATION PROGRESS MODAL
+// ─────────────────────────────────────────────────────────────
+interface AIGenerationModalProps {
+  visible: boolean;
+  lastWorkout?: WorkoutRecord | null;
+}
+
+function AIGenerationModal({ visible, lastWorkout }: AIGenerationModalProps) {
+  const [step, setStep] = useState(0);
+
+  const energy = lastWorkout?.feedback_energy || 3;
+  const soreness = lastWorkout?.feedback_soreness || 3;
+  const lastMuscles = (lastWorkout?.target_muscles || []).join(', ') || 'Previous Group';
+
+  const steps = [
+    {
+      title: 'Analyzing Session History & Feedback',
+      detail: lastWorkout
+        ? `Reviewing "${lastWorkout.title}" • Energy ${energy}/5 • Soreness ${soreness}/5`
+        : 'Evaluating baseline fitness goals and equipment setup...',
+    },
+    {
+      title: 'Calculating Muscle Recovery & Fatigue Index',
+      detail: lastWorkout
+        ? `Resting [${lastMuscles}] -> Rotating to complementary muscle groups`
+        : 'Selecting optimal full-body muscle activation protocol...',
+    },
+    {
+      title: 'Synthesizing Progressive Overload Plan',
+      detail: soreness >= 4
+        ? 'High soreness detected -> Lowering working sets & adding rest intervals'
+        : energy >= 4
+        ? 'High energy reported -> Applying progressive overload & target intensity'
+        : 'Calibrating exercise selection for current recovery state...',
+    },
+    {
+      title: 'Finalizing Customized Exercises & Form Tips',
+      detail: 'Building exercise sequence, rest times, and readiness score...',
+    },
+  ];
+
+  useEffect(() => {
+    if (visible) {
+      setStep(0);
+      const t1 = setTimeout(() => setStep(1), 600);
+      const t2 = setTimeout(() => setStep(2), 1200);
+      const t3 = setTimeout(() => setStep(3), 1800);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={genM.overlay}>
+        <View style={genM.card}>
+          <View style={genM.header}>
+            <View style={genM.iconCircle}>
+              <Feather name="cpu" size={20} color="#0A0A0A" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={genM.kicker}>FITAI ENGINE ACTIVATING</Text>
+              <Text style={genM.title}>Generating Adaptive Plan</Text>
+            </View>
+            <ActivityIndicator size="small" color={Colors.gold} />
+          </View>
+
+          {/* Last session context badge if available */}
+          {lastWorkout && (
+            <View style={genM.contextBox}>
+              <Text style={genM.contextTag}>LAST SESSION INGESTED</Text>
+              <Text style={genM.contextTitle}>"{lastWorkout.title}"</Text>
+              <View style={genM.chipRow}>
+                <View style={genM.chip}><Text style={genM.chipText}>⚡ Energy {energy}/5</Text></View>
+                <View style={[genM.chip, soreness >= 4 && { backgroundColor: 'rgba(239,68,68,0.2)' }]}><Text style={[genM.chipText, soreness >= 4 && { color: '#FF6B6B' }]}>🩹 Soreness {soreness}/5</Text></View>
+                {lastWorkout.feedback_notes ? (
+                  <View style={genM.chip}><Text style={genM.chipText}>📝 "{lastWorkout.feedback_notes.slice(0, 24)}"</Text></View>
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Step Timeline */}
+          <View style={genM.timeline}>
+            {steps.map((st, idx) => {
+              const active = idx === step;
+              const done = idx < step;
+              return (
+                <View key={idx} style={genM.stepRow}>
+                  <View style={[genM.dot, done && genM.dotDone, active && genM.dotActive]}>
+                    {done ? (
+                      <Feather name="check" size={10} color="#0A0A0A" />
+                    ) : (
+                      <Text style={[genM.stepNum, active && { color: '#0A0A0A' }]}>{idx + 1}</Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[genM.stepTitle, active && { color: Colors.gold }, done && { color: Colors.text }]}>
+                      {st.title}
+                    </Text>
+                    <Text style={genM.stepDetail}>{st.detail}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const genM = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  card: { width: '100%', backgroundColor: '#141414', borderRadius: 20, padding: 20, borderWidth: 1.5, borderColor: 'rgba(245,196,0,0.3)' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  iconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  kicker: { fontSize: 9, fontWeight: '800', color: Colors.gold, letterSpacing: 1 },
+  title: { fontSize: 16, fontWeight: '800', color: Colors.text },
+
+  contextBox: { backgroundColor: 'rgba(245,196,0,0.06)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(245,196,0,0.18)', marginBottom: 16 },
+  contextTag: { fontSize: 8.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 3 },
+  contextTitle: { fontSize: 13, fontWeight: '700', color: Colors.text, marginBottom: 6 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  chipText: { fontSize: 10, fontWeight: '700', color: Colors.text2 },
+
+  timeline: { gap: 12 },
+  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  dotActive: { backgroundColor: Colors.gold },
+  dotDone: { backgroundColor: Colors.green },
+  stepNum: { fontSize: 10, fontWeight: '800', color: Colors.text2 },
+  stepTitle: { fontSize: 13, fontWeight: '700', color: Colors.text2 },
+  stepDetail: { fontSize: 11, color: 'rgba(176,170,154,0.6)', marginTop: 2, lineHeight: 15 },
+});
+
+// ─────────────────────────────────────────────────────────────
 // EXERCISE CARD
 // ─────────────────────────────────────────────────────────────
 function ExerciseCard({
@@ -290,6 +429,7 @@ export default function WorkoutScreen() {
     <SafeAreaView style={s.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
       <FeedbackModal visible={showFeedback} onSubmit={handleFeedbackSubmit} onSkip={handleFeedbackSkip} />
+      <AIGenerationModal visible={generating} lastWorkout={state?.lastWorkout} />
 
       <ScrollView
         style={s.container}
@@ -344,9 +484,16 @@ export default function WorkoutScreen() {
           <>
             {state?.lastWorkout && (
               <View style={s.lastCard}>
-                <Text style={s.sectionLabel}>LAST SESSION</Text>
+                <Text style={s.sectionLabel}>PREVIOUS SESSION FEEDBACK INGESTED</Text>
                 <Text style={s.lastTitle}>{state.lastWorkout.title}</Text>
-                <Text style={s.lastMeta}>{(state.lastWorkout.target_muscles || []).join(' · ')}</Text>
+                <Text style={s.lastMeta}>Target: {(state.lastWorkout.target_muscles || []).join(' · ')}</Text>
+                {state.lastWorkout.feedback_energy !== undefined && state.lastWorkout.feedback_energy > 0 && (
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                    <Text style={s.adaptTagText}>Energy {state.lastWorkout.feedback_energy}/5</Text>
+                    <Text style={s.adaptTagText}>Soreness {state.lastWorkout.feedback_soreness}/5</Text>
+                    <Text style={s.adaptTagText}>Mood {state.lastWorkout.feedback_mood}/5</Text>
+                  </View>
+                )}
                 {state.lastWorkout.status === 'missed' && (
                   <View style={s.missedBadge}><Text style={s.missedText}>MISSED</Text></View>
                 )}
@@ -355,19 +502,19 @@ export default function WorkoutScreen() {
             <View style={s.heroCard}>
               <View style={s.pill}>
                 <Feather name="cpu" size={11} color={Colors.gold} />
-                <Text style={s.pillText}>ADAPTIVE PLAN</Text>
+                <Text style={s.pillText}>ADAPTIVE AI PLANNER</Text>
               </View>
-              <Text style={s.heroTitle}>Ready for Today's Workout?</Text>
+              <Text style={s.heroTitle}>Generate Today's Workout</Text>
               <Text style={s.heroSub}>
                 {state?.missedCount && state.missedCount > 0
-                  ? `You missed ${state.missedCount} day(s) — plan adjusted for re-engagement.`
-                  : 'Generated based on your last session, feedback, and recovery.'}
+                  ? `You missed ${state.missedCount} day(s) — plan adapted for smooth re-engagement.`
+                  : 'AI evaluates yesterday\'s exercises, muscle fatigue, and feedback score.'}
               </Text>
               <TouchableOpacity style={s.primaryBtn} onPress={handleGenerate} disabled={generating} activeOpacity={0.85}>
                 {generating
                   ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <ActivityIndicator size="small" color="#0A0A0A" />
-                    <Text style={s.primaryBtnText}>Generating…</Text>
+                    <Text style={s.primaryBtnText}>Analyzing &amp; Generating…</Text>
                   </View>
                   : <Text style={s.primaryBtnText}>Generate Today's Workout</Text>}
               </TouchableOpacity>
@@ -395,10 +542,10 @@ export default function WorkoutScreen() {
                 <View style={s.statItem}><Feather name="layers" size={14} color={Colors.brightYellow} /><Text style={s.statText}>{totalExercises} exercises</Text></View>
               </View>
 
-              {/* Reasoning */}
+              {/* Reasoning Box */}
               {workout.ai_reasoning && (
                 <View style={s.reasonBox}>
-                  <Text style={s.reasonText}>{workout.ai_reasoning}</Text>
+                  <Text style={s.reasonText}>🧠 {workout.ai_reasoning}</Text>
                 </View>
               )}
 
@@ -406,7 +553,7 @@ export default function WorkoutScreen() {
               {workout.adaptations && workout.adaptations.length > 0 && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                   {workout.adaptations.map((a, i) => (
-                    <View key={i} style={s.adaptTag}><Text style={s.adaptTagText}>{a}</Text></View>
+                    <View key={i} style={s.adaptTag}><Text style={s.adaptTagText}>✓ {a}</Text></View>
                   ))}
                 </View>
               )}
@@ -428,6 +575,7 @@ export default function WorkoutScreen() {
             {/* Why card */}
             {workout.why_recommendation && (
               <View style={s.whyCard}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 4 }}>WHY THIS WORKOUT TODAY</Text>
                 <Text style={s.whyText}>{workout.why_recommendation}</Text>
               </View>
             )}
@@ -501,7 +649,7 @@ export default function WorkoutScreen() {
 // STYLES
 // ─────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg, paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0) + 12 },
   container: { flex: 1, paddingHorizontal: Spacing.lg },
   content: { paddingBottom: 110 },
 
