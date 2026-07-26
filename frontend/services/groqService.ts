@@ -73,6 +73,7 @@ export interface NutritionPlan {
     proteinConsumedG: number;
     carbsConsumedG: number;
     fatsConsumedG: number;
+    caloriesConsumed?: number;
   };
   dietPref: string;
   meals: {
@@ -299,12 +300,26 @@ export const groqService = {
     }
   },
 
-  async logMeal(mealType: string, foodItem: string): Promise<any> {
+  async calculateMacros(mealType: string, foodItem: string): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/nutrition/calculate-macros`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ mealType, foodItem }),
+      });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async logMeal(mealType: string, foodItem: string, proteinG?: number, carbsG?: number, fatsG?: number, calories?: number): Promise<any> {
     try {
       const res = await fetch(`${API_BASE_URL}/nutrition/log-meal`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ mealType, foodItem }),
+        body: JSON.stringify({ mealType, foodItem, proteinG, carbsG, fatsG, calories }),
       });
       const json = await res.json();
       return json.success ? json.data : null;

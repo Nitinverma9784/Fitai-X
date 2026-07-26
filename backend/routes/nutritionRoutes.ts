@@ -175,11 +175,10 @@ router.post('/plan/regenerate', authenticateToken, async (req: AuthenticatedRequ
   }
 });
 
-// Log Individual Meal (Breakfast, Lunch, Dinner, Snack) with AI Macro Calculation & +3 XP
-router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+// Step 1: Calculate Macros ONLY via Groq AI — NO DB save, NO XP (pure estimation)
+router.post('/calculate-macros', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
-    const { mealType = 'Breakfast', foodItem = '100g raw daal' } = req.body;
+    const { foodItem = '100g raw daal', mealType = 'Breakfast' } = req.body;
 
     let proteinG = 24;
     let carbsG = 60;
@@ -189,14 +188,14 @@ router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, re
     const { client } = getNextGroqClient();
     if (client) {
       try {
-        const sysPrompt = `You are FitAI Indian & Global Macro Estimation Engine. Calculate exact protein (g), carbs (g), fats (g), and total calories for any Indian or global food item (e.g. "100g raw daal", "200g paneer", "3 rotis + 1 bowl chana"). Respond strictly in JSON:
+        const sysPrompt = `You are FitAI Indian & Global Macro Estimation Engine. Calculate exact protein (g), carbs (g), fats (g), and total calories for any Indian or global food item (e.g. "100g raw daal", "200g paneer", "3 rotis + 1 bowl chana", "2 eggs"). Respond strictly in JSON:
 {
   "proteinG": number,
   "carbsG": number,
   "fatsG": number,
   "calories": number
 }`;
-        const userPrompt = `Calculate macros for food entry: "${foodItem}" logged under ${mealType}`;
+        const userPrompt = `Calculate macros for: "${foodItem}" (logged as ${mealType})`;
 
         const groqRes = await client.chat.completions.create({
           messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
@@ -207,40 +206,71 @@ router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, re
 
         const parsed = JSON.parse(groqRes.choices[0]?.message?.content || '{}');
         if (typeof parsed.proteinG === 'number') {
-          proteinG = parsed.proteinG;
-          carbsG = parsed.carbsG || 0;
-          fatsG = parsed.fatsG || 0;
-          calories = parsed.calories || Math.round(proteinG * 4 + carbsG * 4 + fatsG * 9);
+          proteinG = Math.round(parsed.proteinG * 10) / 10;
+          carbsG = Math.round((parsed.carbsG || 0) * 10) / 10;
+          fatsG = Math.round((parsed.fatsG || 0) * 10) / 10;
+          calories = Math.round(parsed.calories || (proteinG * 4 + carbsG * 4 + fatsG * 9));
         }
       } catch {
-        // Fallback calculation
+        // Fallback defaults
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { proteinG, carbsG, fatsG, calories, foodItem, mealType },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Step 2: Confirm Log Meal — Saves to DB & Awards +3 XP (accepts pre-calculated or raw macros)
+router.post('/log-meal', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId || 1;
+    const { mealType = 'Breakfast', foodItem = '100g raw daal', proteinG: preProtein, carbsG: preCarbs, fatsG: preFats, calories: preCals } = req.body;
+
+    // If frontend sends pre-calculated macros (from /calculate-macros step), use them directly
+    let proteinG = typeof preProtein === 'number' ? preProtein : 24;
+    let carbsG = typeof preCarbs === 'number' ? preCarbs : 60;
+    let fatsG = typeof preFats === 'number' ? preFats : 2;
+    let calories = typeof preCals === 'number' ? preCals : 340;
+
+    // If no pre-calculated macros provided, run AI estimation as fallback
+    if (typeof preProtein !== 'number') {
+      const { client } = getNextGroqClient();
+      if (client) {
+        try {
+          const sysPrompt = `You are FitAI Indian & Global Macro Estimation Engine. Calculate macros for Indian/global food. Respond in JSON: { "proteinG": number, "carbsG": number, "fatsG": number, "calories": number }`;
+          const groqRes = await client.chat.completions.create({
+            messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: `Calculate macros for: "${foodItem}"` }],
+            model: config.defaultModel,
+            temperature: 0.2,
+            response_format: { type: 'json_object' },
+          });
+          const parsed = JSON.parse(groqRes.choices[0]?.message?.content || '{}');
+          if (typeof parsed.proteinG === 'number') {
+            proteinG = parsed.proteinG;
+            carbsG = parsed.carbsG || 0;
+            fatsG = parsed.fatsG || 0;
+            calories = parsed.calories || Math.round(proteinG * 4 + carbsG * 4 + fatsG * 9);
+          }
+        } catch {
+          // Fallback defaults
+        }
       }
     }
 
     // Save logged meal to DB
-    const savedMeal = await db.logMeal(userId, {
-      mealType,
-      foodItem,
-      proteinG,
-      carbsG,
-      fatsG,
-      calories,
-    });
+    const savedMeal = await db.logMeal(userId, { mealType, foodItem, proteinG, carbsG, fatsG, calories });
 
     // Award +3 XP for meal logging
     const xpResult = await db.awardXp(userId, 3);
 
     res.json({
       success: true,
-      data: {
-        meal: savedMeal,
-        proteinG,
-        carbsG,
-        fatsG,
-        calories,
-        xpEarned: 3,
-        levelData: xpResult.levelData,
-      },
+      data: { meal: savedMeal, proteinG, carbsG, fatsG, calories, xpEarned: 3, levelData: xpResult.levelData },
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

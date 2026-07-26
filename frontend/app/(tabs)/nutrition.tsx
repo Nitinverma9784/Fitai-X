@@ -76,7 +76,14 @@ export default function NutritionScreen() {
     }
   };
 
+  const todayLogs = plan?.todayLogs || [];
+
+  const isMealLogged = (mealType: string) => {
+    return todayLogs.some((log: any) => log.meal_type?.toLowerCase() === mealType.toLowerCase());
+  };
+
   const openLogMeal = (mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks') => {
+    if (isMealLogged(mealType)) return;
     setSelectedMealType(mealType);
     setFoodItemText(
       mealType === 'Breakfast' ? '100g raw daal + 2 eggs' :
@@ -87,21 +94,26 @@ export default function NutritionScreen() {
     setLogModalVisible(true);
   };
 
-  // Step 1: Calculate Macros via Groq AI
+  // Step 1: Calculate Macros via Groq AI (Estimation Only)
   const handleCalculateMacros = async () => {
     if (!foodItemText.trim()) return;
     setCalculating(true);
     try {
-      const result = await groqService.logMeal(selectedMealType, foodItemText);
+      const result = await groqService.calculateMacros(selectedMealType, foodItemText);
       if (result) {
-        setCalcProtein(String(result.proteinG || 24));
-        setCalcCarbs(String(result.carbsG || 60));
-        setCalcFats(String(result.fatsG || 2));
-        setCalcCals(String(result.calories || 340));
+        setCalcProtein(String(result.proteinG ?? 24));
+        setCalcCarbs(String(result.carbsG ?? 60));
+        setCalcFats(String(result.fatsG ?? 2));
+        setCalcCals(String(result.calories ?? 340));
+        setStep('EDIT');
+      } else {
+        setCalcProtein('24');
+        setCalcCarbs('60');
+        setCalcFats('2');
+        setCalcCals('340');
         setStep('EDIT');
       }
     } catch {
-      // Fallback manual numbers
       setCalcProtein('24');
       setCalcCarbs('60');
       setCalcFats('2');
@@ -112,22 +124,31 @@ export default function NutritionScreen() {
     }
   };
 
-  // Step 2: Confirm & Save Meal to DB
+  // Step 2: Confirm & Save Meal to DB (+3 XP)
   const handleConfirmAndSaveMeal = async () => {
     setSavingMeal(true);
     try {
       const proteinG = parseFloat(calcProtein) || 0;
       const carbsG = parseFloat(calcCarbs) || 0;
       const fatsG = parseFloat(calcFats) || 0;
-      const calories = parseFloat(calcCals) || (proteinG * 4 + carbsG * 4 + fatsG * 9);
+      const calories = parseFloat(calcCals) || Math.round(proteinG * 4 + carbsG * 4 + fatsG * 9);
+
+      const result = await groqService.logMeal(
+        selectedMealType,
+        foodItemText,
+        proteinG,
+        carbsG,
+        fatsG,
+        calories
+      );
 
       setLastLoggedResult({
         mealType: selectedMealType,
         foodItem: foodItemText,
-        proteinG,
-        carbsG,
-        fatsG,
-        calories,
+        proteinG: result?.proteinG ?? proteinG,
+        carbsG: result?.carbsG ?? carbsG,
+        fatsG: result?.fatsG ?? fatsG,
+        calories: result?.calories ?? calories,
       });
 
       setLogModalVisible(false);
@@ -154,10 +175,12 @@ export default function NutritionScreen() {
   const proteinConsumed = targets.proteinConsumedG || 0;
   const carbsConsumed = targets.carbsConsumedG || 0;
   const fatsConsumed = targets.fatsConsumedG || 0;
+  const caloriesConsumed = targets.caloriesConsumed || 0;
 
   const proteinPct = Math.round((proteinConsumed / (targets.proteinG || 1)) * 100);
   const carbsPct = Math.round((carbsConsumed / (targets.carbsG || 1)) * 100);
   const fatsPct = Math.round((fatsConsumed / (targets.fatsG || 1)) * 100);
+  const calsPct = Math.round((caloriesConsumed / (targets.calories || 1)) * 100);
 
   const meals = plan?.meals || [
     { tag: 'BREAKFAST • 8:00 AM', name: 'Paneer Bhurji & Moong Dal Chilla / Eggs', cals: '520 kcal', desc: '150g Paneer Bhurji, 2 Moong Dal Chillas or 4 Egg Whites, 100g Curd' },
@@ -174,8 +197,6 @@ export default function NutritionScreen() {
     { name: 'Eggs & Fresh Dahi/Curd', qty: '2 Dozen', estCost: '$5.50' },
     { name: 'Palak, Tomatoes & Cucumber', qty: 'Fresh Pack', estCost: '$4.00' },
   ];
-
-  const todayLogs = plan?.todayLogs || [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -303,7 +324,7 @@ export default function NutritionScreen() {
         title="MEAL LOGGED SUCCESSFULLY!"
         message={
           lastLoggedResult
-            ? `Logged: ${lastLoggedResult.foodItem} (${lastLoggedResult.proteinG}g Protein, ${lastLoggedResult.calories} kcal). Dynamic targets updated!`
+            ? `Logged: ${lastLoggedResult.foodItem} (${lastLoggedResult.proteinG}g Protein, ${lastLoggedResult.calories} kcal). Daily macro targets updated!`
             : 'Meal logged cleanly & ingested into macro targets!'
         }
         onClose={() => setShowXpReward(false)}
@@ -351,12 +372,11 @@ export default function NutritionScreen() {
             <View style={styles.card}>
               <View style={styles.cardHeadRow}>
                 <Text style={styles.cardTitle}>Daily Macro Targets ({plan?.dietPref || 'Indian High Protein'})</Text>
-                <Text style={styles.proteinBadge}>{proteinPct}% Protein Target Achieved</Text>
               </View>
               <View style={styles.macroRow}>
                 <View style={styles.macroItem}>
                   <Text style={styles.macroVal}>{proteinConsumed}g / {targets.proteinG}g</Text>
-                  <Text style={styles.macroLabel}>Protein ({proteinPct}%)</Text>
+                  <Text style={styles.macroLabel}>Protein ({proteinPct}% Achieved)</Text>
                   <View style={styles.track}>
                     <View style={[styles.fill, { width: `${Math.min(proteinPct, 100)}%`, backgroundColor: Colors.gold }]} />
                   </View>
@@ -378,30 +398,61 @@ export default function NutritionScreen() {
                   </View>
                 </View>
               </View>
+
+              {/* Total Calorie Summary Bar */}
+              <View style={styles.calsSummaryRow}>
+                <Text style={styles.calsSummaryText}>
+                  🔥 Calories Ingested: <Text style={{ color: Colors.gold, fontWeight: '800' }}>{Math.round(caloriesConsumed)} / {targets.calories} kcal</Text> ({calsPct}%)
+                </Text>
+              </View>
             </View>
 
             {/* Quick Meal Logging Bar (Breakfast, Lunch, Dinner, Snacks) */}
             <View style={styles.logBarCard}>
-              <Text style={styles.logBarTitle}>⚡ Log Daily Meals (+3 XP per meal)</Text>
+              <Text style={styles.logBarTitle}>⚡ Log Today's Meals (+3 XP per meal · 1x Daily)</Text>
               <View style={styles.mealBtnRow}>
-                <TouchableOpacity style={styles.mealLogBtn} onPress={() => openLogMeal('Breakfast')}>
-                  <Text style={styles.mealLogEmoji}>🥞</Text>
-                  <Text style={styles.mealLogText}>Breakfast</Text>
+                {/* Breakfast */}
+                <TouchableOpacity
+                  style={[styles.mealLogBtn, isMealLogged('Breakfast') && styles.mealLogBtnDisabled]}
+                  onPress={() => openLogMeal('Breakfast')}
+                  disabled={isMealLogged('Breakfast')}>
+                  <Text style={styles.mealLogEmoji}>{isMealLogged('Breakfast') ? '✅' : '🥞'}</Text>
+                  <Text style={[styles.mealLogText, isMealLogged('Breakfast') && styles.mealLogTextDisabled]}>
+                    {isMealLogged('Breakfast') ? 'Logged ✓' : 'Breakfast'}
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.mealLogBtn} onPress={() => openLogMeal('Lunch')}>
-                  <Text style={styles.mealLogEmoji}>🥗</Text>
-                  <Text style={styles.mealLogText}>Lunch</Text>
+                {/* Lunch */}
+                <TouchableOpacity
+                  style={[styles.mealLogBtn, isMealLogged('Lunch') && styles.mealLogBtnDisabled]}
+                  onPress={() => openLogMeal('Lunch')}
+                  disabled={isMealLogged('Lunch')}>
+                  <Text style={styles.mealLogEmoji}>{isMealLogged('Lunch') ? '✅' : '🥗'}</Text>
+                  <Text style={[styles.mealLogText, isMealLogged('Lunch') && styles.mealLogTextDisabled]}>
+                    {isMealLogged('Lunch') ? 'Logged ✓' : 'Lunch'}
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.mealLogBtn} onPress={() => openLogMeal('Dinner')}>
-                  <Text style={styles.mealLogEmoji}>🥩</Text>
-                  <Text style={styles.mealLogText}>Dinner</Text>
+                {/* Dinner */}
+                <TouchableOpacity
+                  style={[styles.mealLogBtn, isMealLogged('Dinner') && styles.mealLogBtnDisabled]}
+                  onPress={() => openLogMeal('Dinner')}
+                  disabled={isMealLogged('Dinner')}>
+                  <Text style={styles.mealLogEmoji}>{isMealLogged('Dinner') ? '✅' : '🥩'}</Text>
+                  <Text style={[styles.mealLogText, isMealLogged('Dinner') && styles.mealLogTextDisabled]}>
+                    {isMealLogged('Dinner') ? 'Logged ✓' : 'Dinner'}
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.mealLogBtn} onPress={() => openLogMeal('Snacks')}>
-                  <Text style={styles.mealLogEmoji}>🍎</Text>
-                  <Text style={styles.mealLogText}>Snacks</Text>
+                {/* Snacks */}
+                <TouchableOpacity
+                  style={[styles.mealLogBtn, isMealLogged('Snacks') && styles.mealLogBtnDisabled]}
+                  onPress={() => openLogMeal('Snacks')}
+                  disabled={isMealLogged('Snacks')}>
+                  <Text style={styles.mealLogEmoji}>{isMealLogged('Snacks') ? '✅' : '🍎'}</Text>
+                  <Text style={[styles.mealLogText, isMealLogged('Snacks') && styles.mealLogTextDisabled]}>
+                    {isMealLogged('Snacks') ? 'Logged ✓' : 'Snacks'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -483,20 +534,23 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 16, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
-  proteinBadge: { fontSize: 9.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.5, backgroundColor: 'rgba(245,196,0,0.12)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' },
   macroRow: { flexDirection: 'row', gap: 12 },
   macroItem: { flex: 1 },
   macroVal: { fontSize: 12, fontWeight: '800', color: Colors.text, marginBottom: 2 },
   macroLabel: { fontSize: 10, color: Colors.text2, marginBottom: 4, fontWeight: '600' },
   track: { height: 6, backgroundColor: Colors.card2, borderRadius: 3, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
+  calsSummaryRow: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
+  calsSummaryText: { fontSize: 11.5, color: Colors.text2, fontWeight: '600' },
 
   logBarCard: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   logBarTitle: { fontSize: 12, fontWeight: '800', color: Colors.gold, marginBottom: 10 },
   mealBtnRow: { flexDirection: 'row', gap: 8 },
   mealLogBtn: { flex: 1, backgroundColor: Colors.card2, borderRadius: Radii.md, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  mealLogBtnDisabled: { backgroundColor: '#1A1A1A', borderColor: 'rgba(74,222,128,0.25)', opacity: 0.8 },
   mealLogEmoji: { fontSize: 18, marginBottom: 2 },
   mealLogText: { fontSize: 10.5, fontWeight: '700', color: Colors.text },
+  mealLogTextDisabled: { color: Colors.green, fontWeight: '800' },
 
   loggedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   loggedType: { fontSize: 12, fontWeight: '800', color: Colors.gold, marginBottom: 2 },
