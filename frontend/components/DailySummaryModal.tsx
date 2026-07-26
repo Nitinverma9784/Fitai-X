@@ -105,6 +105,28 @@ export function DailySummaryModal({ visible, data, onClose }: DailySummaryModalP
                 {showRecovery && (
                   <>
                     <Text style={s.sectionLabel}>RECORDED BIO-RECOVERY METRICS</Text>
+
+                    {/* Readiness Score Gauge */}
+                    {data.readinessPercentage !== undefined && (
+                      <View style={s.readinessRow}>
+                        <View style={[s.readinessBadge, {
+                          borderColor: data.readinessPercentage >= 80 ? '#4ade80' : data.readinessPercentage >= 55 ? '#f5c400' : '#ef4444',
+                          backgroundColor: data.readinessPercentage >= 80 ? 'rgba(74,222,128,0.1)' : data.readinessPercentage >= 55 ? 'rgba(245,196,0,0.1)' : 'rgba(239,68,68,0.1)',
+                        }]}>
+                          <Text style={[s.readinessPct, {
+                            color: data.readinessPercentage >= 80 ? '#4ade80' : data.readinessPercentage >= 55 ? '#f5c400' : '#ef4444',
+                          }]}>{data.readinessPercentage}%</Text>
+                          <Text style={s.readinessLbl}>AI READINESS</Text>
+                        </View>
+                        <View style={s.readinessBarContainer}>
+                          <View style={[s.readinessBar, {
+                            width: `${data.readinessPercentage}%`,
+                            backgroundColor: data.readinessPercentage >= 80 ? '#4ade80' : data.readinessPercentage >= 55 ? '#f5c400' : '#ef4444',
+                          }]} />
+                        </View>
+                      </View>
+                    )}
+
                     <View style={s.grid2}>
                       <View style={s.miniCard}>
                         <Text style={s.miniLabel}>Sleep Duration</Text>
@@ -145,6 +167,7 @@ export function DailySummaryModal({ visible, data, onClose }: DailySummaryModalP
                 )}
               </>
             ) : (
+
               <View style={s.emptyBox}>
                 <Ionicons name="calendar-outline" size={28} color={Colors.text2} style={{ marginBottom: 8 }} />
                 <Text style={s.emptyTitle}>No Data Logged On This Date</Text>
@@ -196,6 +219,14 @@ const s = StyleSheet.create({
   miniUnit: { fontSize: 11, color: Colors.gold, fontWeight: '700' },
   miniSub: { fontSize: 9.5, color: Colors.text2, marginTop: 2 },
 
+  // Readiness gauge
+  readinessRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  readinessBadge: { width: 64, height: 64, borderRadius: 32, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  readinessPct: { fontSize: 17, fontWeight: '900' },
+  readinessLbl: { fontSize: 7, fontWeight: '800', color: Colors.text2, letterSpacing: 0.5 },
+  readinessBarContainer: { flex: 1, height: 8, backgroundColor: Colors.card2, borderRadius: 4, overflow: 'hidden' },
+  readinessBar: { height: '100%', borderRadius: 4 },
+
   emptyBox: { padding: 40, alignItems: 'center' },
   emptyTitle: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 4 },
   emptySub: { fontSize: 12, color: Colors.text2, textAlign: 'center', lineHeight: 17 },
@@ -203,3 +234,4 @@ const s = StyleSheet.create({
   closeActionBtn: { backgroundColor: Colors.gold, borderRadius: Radii.md, paddingVertical: 14, alignItems: 'center', marginTop: 10 },
   closeActionText: { fontSize: 13, fontWeight: '900', color: '#0A0A0A' },
 });
+

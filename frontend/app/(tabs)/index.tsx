@@ -14,7 +14,7 @@ import {
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter, useFocusEffect } from 'expo-router';
 
-import { groqService, UserProfile, WorkoutPlan, UserStatsResponse, NutritionPlan } from '@/services/groqService';
+import { groqService, UserProfile, WorkoutPlan, UserStatsResponse, NutritionPlan, RecoveryLog } from '@/services/groqService';
 import { workoutService, TodayState } from '@/services/workoutService';
 import {
   BellIcon, SparklesIcon, ArrowForwardCircleIcon,
@@ -51,21 +51,35 @@ export default function DashboardScreen() {
   const [statsData, setStatsData] = useState<UserStatsResponse | null>(null);
   const [todayState, setTodayState] = useState<TodayState | null>(null);
   const [nutritionPlan, setNutritionPlan] = useState<NutritionPlan | null>(null);
+  const [latestRecovery, setLatestRecovery] = useState<RecoveryLog | null>(null);
+  const [recoveryHistory, setRecoveryHistory] = useState<RecoveryLog[]>([]);
+
   const [checkinVisible, setCheckinVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [summaryData, setSummaryData] = useState<DailySummaryData | null>(null);
 
+  // Build loggedDates set from workout streak + recovery history (all days, not just today)
   const loggedDatesSet = new Set<string>();
   (todayState?.streak || []).forEach(s => {
     if (s.status === 'completed') loggedDatesSet.add(s.date);
+  });
+  // Mark ALL days that have a recovery log
+  recoveryHistory.forEach(r => {
+    const rDate = typeof r.log_date === 'string' ? r.log_date.split('T')[0] : '';
+    if (rDate) loggedDatesSet.add(rDate);
   });
   const todayStr = new Date().toISOString().split('T')[0];
   const hasWorkoutToday = todayState?.workout?.status === 'completed';
   const mealsToday = nutritionPlan?.todayLogs || [];
   const hasMealsToday = mealsToday.length > 0;
+  const rawRecDate = latestRecovery?.log_date || latestRecovery?.created_at;
+  const recoveryLogDate = typeof rawRecDate === 'string'
+    ? rawRecDate.split('T')[0]
+    : (rawRecDate ? new Date(rawRecDate).toISOString().split('T')[0] : '');
+  const hasRecoveryToday = !!latestRecovery && recoveryLogDate === todayStr;
 
-  if (hasWorkoutToday || hasMealsToday) {
+  if (hasWorkoutToday || hasMealsToday || hasRecoveryToday) {
     loggedDatesSet.add(todayStr);
   }
 
@@ -78,6 +92,12 @@ export default function DashboardScreen() {
       const todayMeals = isToday ? mealsToday : [];
       const hasMeals = todayMeals.length > 0;
       const hasWorkout = isToday ? hasWorkoutToday : true;
+      // Find recovery log for this specific date
+      const dayRecovery = recoveryHistory.find(r => {
+        const rDate = typeof r.log_date === 'string' ? r.log_date.split('T')[0] : '';
+        return rDate === dateStr;
+      }) || (isToday && hasRecoveryToday ? latestRecovery : null);
+      const hasRecovery = !!dayRecovery;
 
       let totalProtein = 0;
       let totalCals = 0;
@@ -86,12 +106,21 @@ export default function DashboardScreen() {
         totalCals += parseFloat(m.calories) || 0;
       });
 
+      const recPct = dayRecovery?.readiness_percentage;
+      const recHrv = dayRecovery?.hrv_ms;
+      const recSleep = dayRecovery ? parseFloat(String(dayRecovery.sleep_hours)) : undefined;
+      const recHydration = dayRecovery ? parseFloat(String(dayRecovery.hydration_l)) : undefined;
+      const recSoreness = dayRecovery?.muscle_soreness;
+      const recEff = dayRecovery?.sleep_efficiency;
+      const recLabel = dayRecovery?.status_label || '';
+      const recDesc = dayRecovery?.description || '';
+
       setSummaryData({
         dateStr,
         hasData: true,
         hasWorkout,
         hasMeals,
-        hasRecoveryMetrics: false,
+        hasRecoveryMetrics: hasRecovery,
         workoutTitle: latestWorkout ? latestWorkout.title : 'Workout Session Completed',
         durationMinutes: latestWorkout ? latestWorkout.durationMinutes : 45,
         calories: latestWorkout ? latestWorkout.estimatedCalories : 380,
@@ -99,7 +128,15 @@ export default function DashboardScreen() {
         mealsLoggedCount: todayMeals.length,
         totalProteinLogged: Math.round(totalProtein),
         totalCaloriesLogged: Math.round(totalCals),
-        aiSummary: `On ${dateStr}, your logged activities (${hasWorkout ? 'workout' : ''}${hasWorkout && hasMeals ? ' & ' : ''}${hasMeals ? `${todayMeals.length} meal(s)` : ''}) were recorded successfully.`,
+        sleepHours: recSleep,
+        sleepEfficiency: recEff,
+        hrvMs: recHrv,
+        hydrationL: recHydration,
+        soreness: recSoreness,
+        readinessPercentage: recPct,
+        aiSummary: hasRecovery
+          ? `${recLabel ? recLabel + '. ' : ''}${recDesc || `Readiness: ${recPct}%. HRV ${recHrv}ms · Sleep ${recSleep?.toFixed(1)}h @ ${recEff}% efficiency · Hydration ${recHydration}L · Soreness: ${recSoreness}.`}`
+          : `On ${dateStr}, your logged activities (${hasWorkout ? 'workout' : ''}${hasWorkout && hasMeals ? ' & ' : ''}${hasMeals ? `${todayMeals.length} meal(s)` : ''}) were recorded successfully.`,
       });
     } else {
       setSummaryData({
@@ -113,18 +150,22 @@ export default function DashboardScreen() {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, w, stats, today, nut] = await Promise.all([
+      const [u, w, stats, today, nut, rec, recHistory] = await Promise.all([
         groqService.getUserProfile(),
         groqService.getLatestWorkout(),
         groqService.getUserStats(),
         workoutService.getToday(),
         groqService.getNutritionPlan(),
+        groqService.getLatestRecovery(),
+        groqService.getRecoveryHistory(30),
       ]);
       setUser(u);
       setLatestWorkout(w);
       setStatsData(stats);
       setTodayState(today);
       setNutritionPlan(nut);
+      setLatestRecovery(rec);
+      setRecoveryHistory(recHistory || []);
     } catch {
       // Clean error handle
     } finally {
@@ -172,6 +213,12 @@ export default function DashboardScreen() {
       <MorningCheckinModal
         visible={checkinVisible}
         userName={user?.name}
+        initialMetrics={latestRecovery ? {
+          sleepHours: parseFloat(String(latestRecovery.sleep_hours)) || 7.5,
+          hrvMs: latestRecovery.hrv_ms || 65,
+          muscleSoreness: latestRecovery.muscle_soreness || 'Low',
+          hydrationL: parseFloat(String(latestRecovery.hydration_l)) || 2.5,
+        } : undefined}
         onClose={() => setCheckinVisible(false)}
         onSuccess={() => loadDashboardData()}
       />

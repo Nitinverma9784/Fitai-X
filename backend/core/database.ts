@@ -159,8 +159,11 @@ export async function initDb(): Promise<void> {
         sleep_efficiency INT,
         muscle_soreness VARCHAR(50),
         hydration_l NUMERIC(4,2),
+        log_date DATE DEFAULT CURRENT_DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE recovery_logs ADD COLUMN IF NOT EXISTS log_date DATE DEFAULT CURRENT_DATE;
 
       CREATE TABLE IF NOT EXISTS diet_plans (
         id SERIAL PRIMARY KEY,
@@ -238,7 +241,7 @@ export const db = {
     return memoryDb.users.find(u => u.id === id) || (memoryDb.users.length > 0 ? memoryDb.users[memoryDb.users.length - 1] : null);
   },
 
-  async awardXp(id: number = 1, xpAmount: number = 15): Promise<any> {
+  async awardXp(id: number = 1, xpAmount: number = 5): Promise<any> {
     const user = await this.getUser(id);
     const currentXp = (user?.xp || 0) + xpAmount;
     const levelData = calculateLevelData(currentXp);
@@ -640,7 +643,14 @@ export const db = {
 
   async saveRecoveryLog(userId: number = 1, logData: any): Promise<any> {
     await this.ensureUserExists(userId);
-    const { readinessPercentage, statusLabel, description, hrv_ms, sleep_hours, sleep_efficiency, muscle_soreness, hydration_l } = logData;
+    const readinessPercentage = logData.readinessPercentage || 85;
+    const statusLabel = logData.statusLabel || 'Optimal Bio-Recovery';
+    const description = logData.description || '';
+    const hrv_ms = logData.hrv_ms || 65;
+    const sleep_hours = logData.sleep_hours || 7.5;
+    const sleep_efficiency = logData.sleep_efficiency || 90;
+    const muscle_soreness = logData.muscle_soreness || 'Low';
+    const hydration_l = logData.hydration_l || 2.5;
     const todayStr = new Date().toISOString().split('T')[0];
 
     if (postgresActive) {
@@ -650,7 +660,7 @@ export const db = {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `,
-        [userId, readinessPercentage, statusLabel, description, hrv_ms || 68, sleep_hours || 7.5, sleep_efficiency || 90, muscle_soreness || 'Low', hydration_l || 2.5, todayStr]
+        [userId, readinessPercentage, statusLabel, description, hrv_ms, sleep_hours, sleep_efficiency, muscle_soreness, hydration_l, todayStr]
       );
       return res.rows[0];
     }
@@ -661,11 +671,11 @@ export const db = {
       readiness_percentage: readinessPercentage,
       status_label: statusLabel,
       description,
-      hrv_ms: hrv_ms || 68,
-      sleep_hours: sleep_hours || 7.5,
-      sleep_efficiency: sleep_efficiency || 90,
-      muscle_soreness: muscle_soreness || 'Low',
-      hydration_l: hydration_l || 2.5,
+      hrv_ms,
+      sleep_hours,
+      sleep_efficiency,
+      muscle_soreness,
+      hydration_l,
       log_date: todayStr,
       created_at: new Date(),
     };
@@ -678,10 +688,11 @@ export const db = {
       const res = await pool.query('SELECT * FROM recovery_logs WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [userId]);
       return res.rows[0] || null;
     }
-    return memoryDb.recovery_logs[0] || null;
+    const userLogs = memoryDb.recovery_logs.filter(r => r.user_id === userId);
+    return userLogs.length > 0 ? userLogs[0] : null;
   },
 
-  async getRecoveryHistory(userId: number = 1, limit: number = 14): Promise<any[]> {
+  async getRecoveryHistory(userId: number = 1, limit: number = 30): Promise<any[]> {
     if (postgresActive) {
       const res = await pool.query('SELECT * FROM recovery_logs WHERE user_id = $1 ORDER BY id DESC LIMIT $2', [userId, limit]);
       return res.rows;
@@ -968,3 +979,4 @@ export const db = {
     return Array.from(map.values()).slice(0, limit);
   },
 };
+

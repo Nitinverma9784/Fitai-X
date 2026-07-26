@@ -18,7 +18,8 @@ router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: 
 router.get('/history', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId || 1;
-    const history = await db.getRecoveryHistory(userId, 30);
+    const limit = parseInt(String(req.query.limit || '30'), 10) || 30;
+    const history = await db.getRecoveryHistory(userId, limit);
     res.json({ success: true, data: history });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

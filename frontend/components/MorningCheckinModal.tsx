@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,11 +16,17 @@ import { XpRewardModal } from '@/components/XpRewardModal';
 interface MorningCheckinModalProps {
   visible: boolean;
   userName?: string;
+  initialMetrics?: {
+    sleepHours?: number;
+    hrvMs?: number;
+    muscleSoreness?: 'Low' | 'Moderate' | 'High';
+    hydrationL?: number;
+  };
   onClose: () => void;
   onSuccess: (data: any) => void;
 }
 
-export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: MorningCheckinModalProps) {
+export function MorningCheckinModal({ visible, userName, initialMetrics, onClose, onSuccess }: MorningCheckinModalProps) {
   const [timeInBed, setTimeInBed] = useState('8.0');
   const [timeAsleep, setTimeAsleep] = useState('7.2');
   const [hrvMs, setHrvMs] = useState('65');
@@ -29,6 +35,17 @@ export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: M
   const [saving, setSaving] = useState(false);
   const [showXpReward, setShowXpReward] = useState(false);
   const [pendingData, setPendingData] = useState<any>(null);
+
+  useEffect(() => {
+    if (visible && initialMetrics) {
+      const hours = initialMetrics.sleepHours || 7.2;
+      setTimeAsleep(String(hours));
+      setTimeInBed(String(Number((hours + 0.8).toFixed(1))));
+      setHrvMs(String(initialMetrics.hrvMs || 65));
+      setSoreness(initialMetrics.muscleSoreness || 'Low');
+      setHydration(String(initialMetrics.hydrationL || 2.5));
+    }
+  }, [visible, initialMetrics]);
 
   if (!visible && !showXpReward) return null;
 
@@ -50,7 +67,22 @@ export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: M
         sleepEfficiency: calculatedEfficiency,
       });
 
-      setPendingData(res);
+      // Always set pendingData — use API result or a structured fallback from form values
+      const fallback = {
+        readinessPercentage: 80,
+        statusLabel: 'Bio-Metrics Logged',
+        description: 'Your sleep and recovery metrics have been recorded.',
+        recommendations: [],
+        breathingExercise: { name: 'Box Breathing 4-4-4-4', cycles: 5, targetHrvBoost: '+5%' },
+        log: {
+          sleep_hours: asleep,
+          hrv_ms: hrv,
+          sleep_efficiency: calculatedEfficiency,
+          muscle_soreness: soreness,
+          hydration_l: hyd,
+        },
+      };
+      setPendingData(res ?? fallback);
       setShowXpReward(true);
     } catch {
       onClose();
@@ -59,12 +91,17 @@ export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: M
     }
   };
 
-  const handleFinishReward = () => {
-    setShowXpReward(false);
+
+  const handleDismissModal = () => {
     if (pendingData) {
       onSuccess(pendingData);
     }
     onClose();
+  };
+
+  const handleFinishReward = () => {
+    setShowXpReward(false);
+    handleDismissModal();
   };
 
   return (
@@ -77,14 +114,14 @@ export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: M
                 <Ionicons name="sunny-outline" size={14} color={Colors.gold} />
                 <Text style={s.badgeText}>DAILY MORNING BIO-CHECKIN</Text>
               </View>
-              <TouchableOpacity onPress={onClose} style={s.closeBtn}>
+              <TouchableOpacity onPress={handleDismissModal} style={s.closeBtn}>
                 <Ionicons name="close" size={16} color={Colors.text2} />
               </TouchableOpacity>
             </View>
 
             <Text style={s.title}>Good Morning, {userName || 'Athlete'}! 👋</Text>
             <Text style={s.sub}>
-              Log last night's sleep duration and wearable heart metrics to calculate today's AI readiness score &amp; earn +15 XP.
+              Log last night's sleep duration and wearable heart metrics to calculate today's AI readiness score &amp; earn +5 XP.
             </Text>
 
             {/* Form Controls */}
@@ -172,7 +209,7 @@ export function MorningCheckinModal({ visible, userName, onClose, onSuccess }: M
 
       <XpRewardModal
         visible={showXpReward}
-        xpAmount={15}
+        xpAmount={5}
         title="DAILY BIO-METRICS LOGGED!"
         message="Your sleep and recovery data have been ingested into the FitAI engine. Level progress updated!"
         onClose={handleFinishReward}

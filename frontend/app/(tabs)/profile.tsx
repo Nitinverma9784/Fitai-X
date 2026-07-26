@@ -100,7 +100,7 @@ export default function ProfileScreen() {
             </View>
 
             <Text style={styles.modalDesc}>
-              Earn XP by completing custom workouts (+20 XP), tracking bio-recovery (+15 XP), and maintaining continuous daily streaks.
+              Earn XP by completing custom workouts (+20 XP), tracking bio-recovery (+5 XP), and maintaining continuous daily streaks.
             </Text>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>

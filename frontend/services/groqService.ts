@@ -64,6 +64,21 @@ export interface RecoveryInsights {
   };
 }
 
+export interface RecoveryLog {
+  id: number;
+  user_id: number;
+  readiness_percentage: number;
+  status_label: string;
+  description: string;
+  hrv_ms: number;
+  sleep_hours: string | number;
+  sleep_efficiency: number;
+  muscle_soreness: 'Low' | 'Moderate' | 'High';
+  hydration_l: string | number;
+  log_date: string;
+  created_at: string;
+}
+
 export interface NutritionPlan {
   targets: {
     proteinG: number;
@@ -265,13 +280,23 @@ export const groqService = {
     }
   },
 
-  async getLatestRecovery(): Promise<any | null> {
+  async getLatestRecovery(): Promise<RecoveryLog | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/recovery/latest`, { headers: headers() });
       const json = await res.json();
       return json.success ? json.data : null;
     } catch {
       return null;
+    }
+  },
+
+  async getRecoveryHistory(limit: number = 30): Promise<RecoveryLog[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/recovery/history?limit=${limit}`, { headers: headers() });
+      const json = await res.json();
+      return json.success && Array.isArray(json.data) ? json.data : [];
+    } catch {
+      return [];
     }
   },
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -12,38 +13,79 @@ import {
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import {
   TrendingUpIcon, BarbellIcon, FlameIcon,
-  CheckIcon, HeartIcon, ZapIcon,
+  CheckIcon, HeartIcon, ZapIcon, SparklesIcon,
 } from '@/components/icons/SvgIcons';
 import { workoutService, TodayState, WorkoutExercise } from '@/services/workoutService';
-import { groqService, UserStatsResponse, UserProfile } from '@/services/groqService';
+import { groqService, UserStatsResponse, UserProfile, RecoveryLog } from '@/services/groqService';
 
 export default function AnalyticsScreen() {
   const [timeRange, setTimeRange] = useState<'7D' | '30D' | '1Y' | 'ALL'>('7D');
   const [todayState, setTodayState] = useState<TodayState | null>(null);
   const [statsData, setStatsData] = useState<UserStatsResponse | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [recoveryHistory, setRecoveryHistory] = useState<RecoveryLog[]>([]);
+  const [latestRecovery, setLatestRecovery] = useState<RecoveryLog | null>(null);
+
+  const loadAnalytics = useCallback(async () => {
+    try {
+      const [today, stats, profile, history, latest] = await Promise.all([
+        workoutService.getToday(),
+        groqService.getUserStats(),
+        groqService.getUserProfile(),
+        groqService.getRecoveryHistory(7),
+        groqService.getLatestRecovery(),
+      ]);
+      setTodayState(today);
+      setStatsData(stats);
+      setUserProfile(profile);
+      setRecoveryHistory(history || []);
+      setLatestRecovery(latest);
+    } catch {
+      // Clean fallback
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadAnalytics() {
-      try {
-        const [today, stats, profile] = await Promise.all([
-          workoutService.getToday(),
-          groqService.getUserStats(),
-          groqService.getUserProfile(),
-        ]);
-        setTodayState(today);
-        setStatsData(stats);
-        setUserProfile(profile);
-      } catch {
-        // Clean fallback
-      }
-    }
     loadAnalytics();
-  }, []);
+  }, [loadAnalytics]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAnalytics();
+    }, [loadAnalytics])
+  );
 
   const rawStreak = todayState?.streak || [];
   const completedCount = rawStreak.filter(s => s.status === 'completed').length;
   const currentStreak = statsData?.stats?.currentStreak ?? completedCount;
+  const realRecoveryScore = latestRecovery ? latestRecovery.readiness_percentage : null;
+
+  // Build 7-day recovery trend from history
+  const recoveryTrend = (() => {
+    const result: { label: string; pct: number; hasLog: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const daysMap = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+      const label = daysMap[d.getDay()];
+      const log = recoveryHistory.find(r => {
+        const rDate = typeof r.log_date === 'string' ? r.log_date.split('T')[0] : '';
+        return rDate === dateStr;
+      });
+      result.push({ label, pct: log ? log.readiness_percentage : 0, hasLog: !!log });
+    }
+    return result;
+  })();
+
+  // Real fatigue from latest recovery soreness
+  const soreness = latestRecovery?.muscle_soreness || 'Low';
+  const fatigueMap: Record<string, { chest: number; back: number; legs: number }> = {
+    High:     { chest: 45, back: 55, legs: 35 },
+    Moderate: { chest: 75, back: 80, legs: 65 },
+    Low:      { chest: 100, back: 92, legs: 85 },
+  };
+  const fatigue = fatigueMap[soreness] || fatigueMap.Low;
 
   const maxVol = 5000;
   const weeklyVolume = rawStreak.length > 0
@@ -142,7 +184,7 @@ export default function AnalyticsScreen() {
             </View>
             <View style={styles.subItem}>
               <FlameIcon size={16} color={Colors.amberGold} />
-              <Text style={styles.subVal}>{completedCount > 0 ? '88%' : '80%'}</Text>
+              <Text style={styles.subVal}>{realRecoveryScore !== null ? `${realRecoveryScore}%` : completedCount > 0 ? '88%' : '80%'}</Text>
               <Text style={styles.subLabel}>Recovery Score</Text>
             </View>
             <View style={styles.subItem}>
@@ -200,33 +242,51 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        {/* Muscle Group Fatigue Breakdown */}
+        {/* Bio-Recovery 7-Day Trend */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <SparklesIcon size={14} color={Colors.gold} />
+            <Text style={styles.cardTitle}>Bio-Recovery Trend (7 Days)</Text>
+          </View>
+          <Text style={[styles.cardSub, { marginBottom: 14, textAlign: 'left' }]}>
+            {latestRecovery ? `Latest: ${latestRecovery.readiness_percentage}% · HRV ${latestRecovery.hrv_ms}ms · Sleep ${parseFloat(String(latestRecovery.sleep_hours)).toFixed(1)}h` : 'Log daily bio-metrics to see your recovery trend'}
+          </Text>
+          <View style={styles.chartArea}>
+            {recoveryTrend.map((item, idx) => {
+              const barH = item.hasLog ? Math.max(8, Math.round((item.pct / 100) * 95)) : 8;
+              const barColor = item.hasLog ? (item.pct >= 80 ? Colors.green : item.pct >= 55 ? Colors.gold : '#ef4444') : Colors.card2;
+              return (
+                <View key={idx} style={styles.barCol}>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { height: barH, backgroundColor: barColor }]} />
+                  </View>
+                  <Text style={styles.barLabel}>{item.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Muscle Group Fatigue Breakdown — Real Data */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Muscle Group Fatigue & Recovery</Text>
+          <Text style={[styles.cardSub, { textAlign: 'left', marginBottom: 12 }]}>
+            Derived from logged muscle soreness ({soreness})
+          </Text>
 
-          <View style={styles.fatigueRow}>
-            <Text style={styles.muscleName}>Chest & Triceps</Text>
-            <View style={styles.track}>
-              <View style={[styles.fill, { width: '85%', backgroundColor: Colors.amberGold }]} />
+          {[
+            { name: 'Chest & Triceps', pct: fatigue.chest },
+            { name: 'Legs & Quads', pct: fatigue.legs },
+            { name: 'Back & Biceps', pct: fatigue.back },
+          ].map((m, idx) => (
+            <View key={idx} style={styles.fatigueRow}>
+              <Text style={styles.muscleName}>{m.name}</Text>
+              <View style={styles.track}>
+                <View style={[styles.fill, { width: `${m.pct}%`, backgroundColor: m.pct >= 85 ? Colors.green : m.pct >= 65 ? Colors.gold : Colors.amberGold }]} />
+              </View>
+              <Text style={styles.fatigueText}>{m.pct}% {m.pct >= 85 ? 'Fully Rested' : m.pct >= 65 ? 'Recovering' : 'High Load'}</Text>
             </View>
-            <Text style={styles.fatigueText}>85% High Load</Text>
-          </View>
-
-          <View style={styles.fatigueRow}>
-            <Text style={styles.muscleName}>Legs & Quads</Text>
-            <View style={styles.track}>
-              <View style={[styles.fill, { width: '25%', backgroundColor: Colors.green }]} />
-            </View>
-            <Text style={styles.fatigueText}>25% Fully Rested</Text>
-          </View>
-
-          <View style={styles.fatigueRow}>
-            <Text style={styles.muscleName}>Back & Biceps</Text>
-            <View style={styles.track}>
-              <View style={[styles.fill, { width: '45%', backgroundColor: Colors.gold }]} />
-            </View>
-            <Text style={styles.fatigueText}>45% Moderate Rest</Text>
-          </View>
+          ))}
         </View>
 
       </ScrollView>
