@@ -21,10 +21,10 @@ router.post('/chat', authenticateToken, async (req: AuthenticatedRequest, res: R
     const userId = req.user?.userId || 1;
     const { message, model = config.defaultModel } = req.body;
     if (message) {
-      await db.saveChatMessage(userId, 'user', message);
+      await db.saveChatMessage(userId, 'user', message).catch(err => console.warn('Save chat message error:', err.message));
     }
     const responseText = await processCoachChat(message, model);
-    await db.saveChatMessage(userId, 'ai', responseText);
+    await db.saveChatMessage(userId, 'ai', responseText).catch(err => console.warn('Save AI message error:', err.message));
     res.json({ success: true, response: responseText });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

@@ -1,29 +1,35 @@
-import { getNextGroqClient, config } from '../../core/config';
+import { getNextGroqClient, getGroqKeysCount, config } from '../../core/config';
 
 export async function processCoachChat(message: string, model: string = config.defaultModel): Promise<string> {
-  const { client, keyIndex } = getNextGroqClient();
-
   const systemPrompt = `You are FitGuru, a warm, highly encouraging master fitness & nutrition coach. Provide concise, actionable advice tailored to the user's fitness, diet, and recovery goals. Keep responses formatted nicely with clean bullet points and emojis. Never mention code, APIs, algorithms, or technical infrastructure.`;
   const userPrompt = message || "Give me a quick tip for maximum progress today.";
 
-  if (client) {
-    try {
-      console.log(`🚀 Calling Groq LLM API Key #${keyIndex + 1} (Model: ${model})`);
-      const res = await client.chat.completions.create({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        model: model,
-        temperature: 0.7,
-        max_tokens: 1500,
-      });
-      const response = res.choices[0]?.message?.content;
-      if (response && response.trim()) {
-        return response;
+  const totalKeys = getGroqKeysCount();
+  if (totalKeys > 0) {
+    let attempts = 0;
+    while (attempts < totalKeys) {
+      const { client, keyIndex } = getNextGroqClient();
+      if (client) {
+        try {
+          console.log(`🚀 Calling Groq LLM API Key #${keyIndex + 1} (Model: ${model})...`);
+          const res = await client.chat.completions.create({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            model: model,
+            temperature: 0.7,
+            max_tokens: 1500,
+          });
+          const response = res.choices[0]?.message?.content;
+          if (response && response.trim()) {
+            return response;
+          }
+        } catch (err: any) {
+          console.error(`⚠️ Groq API Key #${keyIndex + 1} call error:`, err.message);
+        }
       }
-    } catch (err: any) {
-      console.error('Groq API call error:', err.message);
+      attempts++;
     }
   }
 
