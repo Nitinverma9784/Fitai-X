@@ -281,7 +281,7 @@ export async function generateAdaptiveWorkoutWithGroq(
 
   const { targetExercises, durationMinutes, estimatedCalories } = getTimeBasedConfig(ctx.timeCommitment, lowEnergy, highSoreness);
 
-  const { client, totalKeys } = require('../core/config').getNextGroqClient();
+  const { client, totalKeys } = getNextGroqClient();
   if (!client || totalKeys === 0) {
     throw new Error('Groq AI API key is missing or invalid in backend configuration. Please add a valid GROQ_API_KEY_1 to .env.');
   }
@@ -298,7 +298,11 @@ export async function generateAdaptiveWorkoutWithGroq(
       response_format: { type: 'json_object' },
     });
 
-    const content = completion.choices[0]?.message?.content;
+    let content = completion.choices[0]?.message?.content || '';
+    content = content.trim();
+    if (content.startsWith('```')) {
+      content = content.replace(/^```(json)?/i, '').replace(/```$/i, '').trim();
+    }
     if (content) {
       resultPlan = JSON.parse(content);
     }

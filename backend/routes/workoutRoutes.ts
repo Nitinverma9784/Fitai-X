@@ -13,7 +13,7 @@ const router = Router();
 // Scenarios: 'FIRST_DAY' | 'HAS_WORKOUT_TODAY' | 'COMPLETED_TODAY' | 'READY_TO_GENERATE'
 router.get('/today', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
 
     // Auto-mark any pending workouts from past days as missed
     await db.markMissedWorkoutsBeforeToday(userId);
@@ -78,7 +78,7 @@ router.get('/today', authenticateToken, async (req: AuthenticatedRequest, res: R
 // ─── GENERATE ADAPTIVE WORKOUT ───────────────────────────────────────────────
 router.post('/generate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
     const userProfile = await db.getUser(userId);
     const history = await db.getWorkoutHistory(userId, 20);
 

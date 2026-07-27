@@ -25,6 +25,8 @@ import { QuickAccessCards } from '@/components/QuickAccessCards';
 import { MorningCheckinModal } from '@/components/MorningCheckinModal';
 import { CalendarComponent } from '@/components/CalendarComponent';
 import { DailySummaryModal, DailySummaryData } from '@/components/DailySummaryModal';
+import { WelcomeBackModal } from '@/components/WelcomeBackModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function calcBMI(weight?: number, height?: number): string {
   if (!weight || !height || height === 0) return '--';
@@ -58,6 +60,8 @@ export default function DashboardScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [summaryData, setSummaryData] = useState<DailySummaryData | null>(null);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const welcomeShownRef = React.useRef(false);
 
   // Build loggedDates set from workout streak + recovery history (all days, not just today)
   const loggedDatesSet = new Set<string>();
@@ -176,6 +180,35 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    async function checkDailyWelcome() {
+      if (!loading && user && !welcomeShownRef.current) {
+        welcomeShownRef.current = true;
+        const todayStr = new Date().toISOString().split('T')[0];
+        let lastShown: string | null = null;
+        try {
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            lastShown = window.localStorage.getItem('fitai_last_welcome_date');
+          } else {
+            lastShown = await AsyncStorage.getItem('fitai_last_welcome_date');
+          }
+        } catch {}
+
+        if (lastShown !== todayStr) {
+          setWelcomeModalVisible(true);
+          try {
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.localStorage.setItem('fitai_last_welcome_date', todayStr);
+            } else {
+              await AsyncStorage.setItem('fitai_last_welcome_date', todayStr);
+            }
+          } catch {}
+        }
+      }
+    }
+    checkDailyWelcome();
+  }, [loading, user]);
 
   // Re-fetch dashboard data whenever screen gains focus
   useFocusEffect(
@@ -324,8 +357,8 @@ export default function DashboardScreen() {
               <Text style={styles.statLabel}>BMI</Text>
               <BodyIcon size={16} color={Colors.brightYellow} />
             </View>
-            <Text style={styles.statVal}>{bmi !== '--' ? bmi : '22.8'}</Text>
-            <Text style={styles.statSub}>{bmiLabel(bmi) || 'Optimal Healthy'}</Text>
+            <Text style={styles.statVal}>{bmi}</Text>
+            <Text style={styles.statSub}>{bmiLabel(bmi) || 'Needs profile info'}</Text>
           </View>
 
           {/* Session Target */}
@@ -412,6 +445,16 @@ export default function DashboardScreen() {
         visible={summaryModalVisible}
         data={summaryData}
         onClose={() => setSummaryModalVisible(false)}
+      />
+
+      <WelcomeBackModal
+        visible={welcomeModalVisible}
+        userName={user?.name || 'Athlete'}
+        level={user?.level || 1}
+        streakCount={statsData?.stats?.currentStreak ?? (statsData as any)?.streakDays ?? 0}
+        readinessScore={hasRecoveryToday ? latestRecovery?.readiness_percentage : undefined}
+        onClose={() => setWelcomeModalVisible(false)}
+        onStartWorkout={() => router.push('/(tabs)/workout')}
       />
     </SafeAreaView>
   );

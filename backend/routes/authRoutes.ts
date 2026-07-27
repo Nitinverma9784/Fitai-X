@@ -147,17 +147,20 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const name: string = deriveDisplayName(rawName, email);
     const avatar: string = userInfo.picture || name.slice(0, 2).toUpperCase();
 
-    const existingUser = await db.getUserByEmail(email);
-    if (existingUser && existingUser.auth_provider === 'email') {
-      const existUrl = buildFrontendRedirectUrl(
-        clientFrontendUrl.replace(/\/auth\/success$/, '/auth'),
-        '/auth',
-        { error: 'email_account_exists', email }
-      );
-      return res.redirect(existUrl);
+    let user = await db.getUserByEmail(email);
+    if (user) {
+      if (user.auth_provider === 'email') {
+        const existUrl = buildFrontendRedirectUrl(
+          clientFrontendUrl.replace(/\/auth\/success$/, '/auth'),
+          '/auth',
+          { error: 'email_account_exists', email }
+        );
+        return res.redirect(existUrl);
+      }
+      user = await db.updateUser(user.id, { name, avatar });
+    } else {
+      user = await db.createUser({ name, email, provider: 'google', avatar });
     }
-
-    const user = await db.createUser({ name, email, provider: 'google', avatar });
     const token = generateToken({ userId: user.id, email: user.email });
     const isOnboarded = user.onboarding_completed === true || user.onboarding_completed === 't';
 

@@ -15,9 +15,18 @@ export async function authenticateWithGoogle(payload: GoogleAuthPayload) {
   const avatar = payload.avatar || 'GA';
 
   // Check if user exists or create new user in PostgreSQL
-  let user = await db.getUser(1);
-  if (!user || user.email !== email) {
-    user = await db.updateUser(1, { name, email, avatar });
+  let user = await db.getUserByEmail(email);
+  if (user) {
+    if (user.auth_provider === 'email') {
+      return {
+        success: false,
+        error: "This email is registered with password login. Please log in using your password.",
+        email,
+      };
+    }
+    user = await db.updateUser(user.id, { name, avatar });
+  } else {
+    user = await db.createUser({ name, email, provider: 'google', avatar });
   }
 
   // Generate JWT Session Token

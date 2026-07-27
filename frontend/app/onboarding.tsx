@@ -37,6 +37,19 @@ export default function OnboardingWizardScreen() {
 
   const totalSteps = 6;
 
+  const handleSkip = async () => {
+    setSubmitting(true);
+    try {
+      await groqService.updateProfile({ onboarding_completed: true });
+      sessionService.markOnboarded();
+    } catch {
+      sessionService.markOnboarded();
+    } finally {
+      setSubmitting(false);
+      router.replace('/(tabs)');
+    }
+  };
+
   const handleNext = async () => {
     if (step < totalSteps) {
       setStep(step + 1);
@@ -55,10 +68,10 @@ export default function OnboardingWizardScreen() {
           dietPref,
           timeCommitment,
         });
-        // Mark session as onboarded so future logins skip this screen
+        await groqService.updateProfile({ onboarding_completed: true });
         sessionService.markOnboarded();
       } catch {
-        // Continue cleanly
+        sessionService.markOnboarded();
       } finally {
         setSubmitting(false);
         router.replace('/(tabs)');
@@ -96,7 +109,7 @@ export default function OnboardingWizardScreen() {
           <Text style={styles.headerTitle}>FITAI ATHLETE ONBOARDING</Text>
           <Text style={styles.stepIndicator}>Step {step} of {totalSteps}</Text>
         </View>
-        <TouchableOpacity style={styles.draftBtn} onPress={handleNext}>
+        <TouchableOpacity style={styles.draftBtn} onPress={handleSkip}>
           <Text style={styles.draftText}>Skip</Text>
         </TouchableOpacity>
       </View>

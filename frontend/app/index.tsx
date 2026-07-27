@@ -92,10 +92,34 @@ export default function SplashScreen() {
           destination.current = '/auth';
         } else {
           const u = await groqService.getUserProfile();
-          destination.current = u && u.onboarding_completed ? '/(tabs)' : '/auth';
+          const localSession = sessionService.get();
+          const onboardVal = u ? (u.onboarding_completed as any) : undefined;
+          const isDbOnboarded = u
+            ? (onboardVal === true || onboardVal === 't' || onboardVal === 'true' || onboardVal === 1 || onboardVal === '1')
+            : false;
+          const isLocalOnboarded = Boolean(localSession?.isOnboarded);
+
+          const isUserOnboarded = isDbOnboarded || isLocalOnboarded;
+
+          // Keep local storage & DB in sync so user isn't re-prompted
+          if (isUserOnboarded) {
+            if (localSession && !localSession.isOnboarded) {
+              sessionService.markOnboarded();
+            }
+            if (u && !isDbOnboarded) {
+              groqService.updateProfile({ onboarding_completed: true }).catch(() => {});
+            }
+          }
+
+          destination.current = isUserOnboarded ? '/(tabs)' : '/onboarding';
         }
       } catch {
-        destination.current = '/auth';
+        // If network request failed but session exists, stay logged in
+        if (sessionService.isLoggedIn()) {
+          destination.current = sessionService.get()?.isOnboarded ? '/(tabs)' : '/onboarding';
+        } else {
+          destination.current = '/auth';
+        }
       } finally {
         dataDone.current = true;
         tryNavigate();

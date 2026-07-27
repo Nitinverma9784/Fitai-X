@@ -9,7 +9,7 @@ const router = Router();
 
 router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
     const log = await recoveryService.getLatestRecovery(userId);
     res.json({ success: true, data: log });
   } catch (err: any) {
@@ -19,7 +19,7 @@ router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: 
 
 router.get('/history', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
     const limit = parseInt(String(req.query.limit || '30'), 10) || 30;
     const history = await recoveryService.getRecoveryHistory(userId, limit);
     res.json({ success: true, data: history });
@@ -39,7 +39,7 @@ router.post('/insights', authenticateToken, async (req: AuthenticatedRequest, re
       logDate,
       forPreviousDay = true,
     } = req.body;
-    const userId = req.user?.userId || 1;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
 
     // Determine target log date for sleep/recovery:
     // If user logs morning recovery checkin, default to yesterday's date unless logDate is specified or forPreviousDay is false.

@@ -73,18 +73,20 @@ export const sessionService = {
   },
 
   save(session: FitAISession): void {
-    _memSession = session;
+    const cleanSession = {
+      ...session,
+      isOnboarded: Boolean(session.isOnboarded),
+    };
+    _memSession = cleanSession;
     if (Platform.OS === 'web') {
-      webSave(session);
+      webSave(cleanSession);
     }
-    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)).catch(() => {});
+    AsyncStorage.setItem(SESSION_KEY, JSON.stringify(cleanSession)).catch(() => {});
   },
 
   get(): FitAISession | null {
-    if (Platform.OS === 'web') {
-      const s = webGet();
-      if (s) _memSession = s;
-      return s;
+    if (!_memSession && Platform.OS === 'web') {
+      _memSession = webGet();
     }
     return _memSession;
   },
