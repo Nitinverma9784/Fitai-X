@@ -1,5 +1,6 @@
-import { getNextGroqClient, config } from '../core/config';
+import { getNextGroqClient, config } from '../../core/config';
 import { fetchExerciseDbDetails } from './exerciseDbService';
+import { generateDecisionExplanation } from '../ai_decision_explanation/generator';
 
 export interface WorkoutGenerationContext {
   userName: string;
@@ -379,8 +380,20 @@ export async function generateAdaptiveWorkoutWithGroq(
 
   const finalExercises = enrichedExercises.slice(0, targetExercises);
 
+  const formattedAiReasoning = generateDecisionExplanation({
+    action: resultPlan.title || 'Adaptive Session Plan',
+    primaryReason: resultPlan.aiReasoning || resultPlan.whyRecommendation || 'Targeted muscular stimulus',
+    readinessScore: ctx.recoveryScore || (ctx.previousDaySummary ? ctx.previousDaySummary.readinessPercentage : 85),
+    sleepHours: ctx.previousDaySummary ? ctx.previousDaySummary.sleepHours : undefined,
+    sorenessLevel: ctx.lastFeedback ? ctx.lastFeedback.soreness : undefined,
+    progressiveOverloadDetails: ctx.userExerciseLogs && ctx.userExerciseLogs.length > 0
+      ? `${ctx.userExerciseLogs.length} exercise performance logs ingested`
+      : undefined,
+  });
+
   return {
     ...resultPlan,
+    aiReasoning: formattedAiReasoning,
     durationMinutes,
     estimatedCalories,
     exercises: finalExercises,

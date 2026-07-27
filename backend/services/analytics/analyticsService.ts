@@ -1,17 +1,20 @@
 import { pool, isPostgresConnected, memoryDb } from '../../core/database';
+import { getLocalDateString } from '../../core/config';
 
 export class AnalyticsService {
-  async saveExerciseLog(userId: number = 1, data: { exerciseName: string; weightKg?: number; barWeightKg?: number; plateWeightKg?: number; repsAchieved: number; isBodyweight?: boolean }): Promise<any> {
+  async saveExerciseLog(userId: number = 1, data: { exerciseName: string; weightKg?: number; barWeightKg?: number; plateWeightKg?: number; repsAchieved: number; isBodyweight?: boolean; rpe?: number; logDate?: string }): Promise<any> {
     const bar = data.barWeightKg || 0;
     const plate = data.plateWeightKg || 0;
-    const totalWeight = data.weightKg || (bar + plate);
+    const totalWeight = data.weightKg || (bar + plate * 2);
     const isBw = !!data.isBodyweight;
+    const rpe = data.rpe || 8;
+    const todayStr = data.logDate || getLocalDateString();
 
     if (isPostgresConnected()) {
       const res = await pool.query(
-        `INSERT INTO exercise_logs (user_id, exercise_name, weight_kg, bar_weight_kg, plate_weight_kg, reps_achieved, is_bodyweight)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [userId, data.exerciseName, totalWeight, bar, plate, data.repsAchieved, isBw]
+        `INSERT INTO exercise_logs (user_id, exercise_name, weight_kg, bar_weight_kg, plate_weight_kg, reps_achieved, is_bodyweight, rpe, log_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [userId, data.exerciseName, totalWeight, bar, plate, data.repsAchieved, isBw, rpe, todayStr]
       );
       return res.rows[0];
     }
@@ -24,6 +27,8 @@ export class AnalyticsService {
       plate_weight_kg: plate,
       reps_achieved: data.repsAchieved,
       is_bodyweight: isBw,
+      rpe,
+      log_date: todayStr,
       logged_at: new Date(),
     };
     if (!(memoryDb as any).exercise_logs) (memoryDb as any).exercise_logs = [];
@@ -31,7 +36,7 @@ export class AnalyticsService {
     return log;
   }
 
-  async getUserExerciseLogs(userId: number = 1, limit: number = 20): Promise<any[]> {
+  async getUserExerciseLogs(userId: number = 1, limit: number = 50): Promise<any[]> {
     if (isPostgresConnected()) {
       try {
         const res = await pool.query(

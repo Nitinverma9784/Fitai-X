@@ -1,9 +1,10 @@
 import { Router, Response } from 'express';
 import { db } from '../core/database';
-import { generateAdaptiveWorkoutWithGroq, WorkoutGenerationContext } from '../services/workoutAiService';
-import { versionControlService } from '../services/versionControlService';
+import { generateAdaptiveWorkoutWithGroq, WorkoutGenerationContext } from '../services/workout/workoutAiService';
+import { versionControlService } from '../services/workout_version_control/versionControlService';
+import { analyticsService } from '../services/analytics/analyticsService';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
-import { fetchExerciseDbDetails } from '../services/exerciseDbService';
+import { fetchExerciseDbDetails } from '../services/workout/exerciseDbService';
 
 const router = Router();
 
@@ -309,18 +310,20 @@ router.post('/set-complete', authenticateToken, async (req: AuthenticatedRequest
 // ─── LOG EXERCISE WEIGHT & REPS ──────────────────────────────────────────────
 router.post('/exercise-log', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.userId || 1;
-    const { exerciseName, weightKg, barWeightKg, plateWeightKg, repsAchieved, isBodyweight } = req.body;
+    const userId = req.user?.userId !== undefined ? req.user.userId : 1;
+    const { exerciseName, weightKg, barWeightKg, plateWeightKg, repsAchieved, isBodyweight, rpe, logDate } = req.body;
     if (!exerciseName || repsAchieved === undefined) {
       return res.status(400).json({ success: false, error: 'Missing required parameters: exerciseName and repsAchieved.' });
     }
-    const result = await db.saveExerciseLog(userId, {
+    const result = await analyticsService.saveExerciseLog(userId, {
       exerciseName,
       weightKg: weightKg ? parseFloat(weightKg) : undefined,
       barWeightKg: barWeightKg ? parseFloat(barWeightKg) : undefined,
       plateWeightKg: plateWeightKg ? parseFloat(plateWeightKg) : undefined,
       repsAchieved: parseInt(repsAchieved, 10),
       isBodyweight: !!isBodyweight,
+      rpe: rpe ? parseInt(String(rpe), 10) : 8,
+      logDate: logDate || undefined,
     });
     res.json({ success: true, data: result });
   } catch (err: any) {

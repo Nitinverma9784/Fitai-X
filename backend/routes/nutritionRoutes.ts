@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { db } from '../core/database';
 import { getNextGroqClient, config } from '../core/config';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
-import { generateGroceryPlan } from '../services/groceryOptimizer';
+import { generateGroceryPlan } from '../services/nutrition/groceryOptimizer';
 
 const router = Router();
 

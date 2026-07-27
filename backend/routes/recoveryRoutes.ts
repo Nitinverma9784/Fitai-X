@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { recoveryService } from '../services/recoveryService';
-import { userService } from '../services/userService';
+import { recoveryService } from '../services/recovery/recoveryService';
+import { userService } from '../services/user/userService';
 import { calculateRecoveryScore } from '../services/ai_recovery_score/score';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
 import { getLocalDateString } from '../core/config';

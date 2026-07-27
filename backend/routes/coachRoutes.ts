@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { coachService } from '../services/coachService';
+import { coachService } from '../services/coach/coachService';
 import { processCoachChat } from '../services/ai_coach/chat';
 import { config } from '../core/config';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';

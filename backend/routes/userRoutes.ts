@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { userService } from '../services/userService';
+import { userService } from '../services/user/userService';
 import { db } from '../core/database';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
 

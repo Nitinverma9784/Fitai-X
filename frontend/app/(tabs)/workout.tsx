@@ -20,6 +20,7 @@ import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { workoutService, WorkoutRecord, StreakDay, TodayState } from '@/services/workoutService';
 import { Video, ResizeMode } from 'expo-av';
+import { LogWeightModal } from '@/components/LogWeightModal';
 
 // ─────────────────────────────────────────────────────────────
 // STREAK CALENDAR
@@ -603,12 +604,13 @@ const evmS = StyleSheet.create({
 // EXERCISE CARD
 // ─────────────────────────────────────────────────────────────
 function ExerciseCard({
-  exercise, index, onToggle, onSelect,
+  exercise, index, onToggle, onSelect, onLogWeight,
 }: {
   exercise: WorkoutRecord['exercises'][0];
   index: number;
   onToggle: (id: number, isDone: boolean) => void;
   onSelect: (ex: WorkoutRecord['exercises'][0]) => void;
+  onLogWeight: (ex: WorkoutRecord['exercises'][0]) => void;
 }) {
   const done = !!exercise.is_completed;
 
@@ -624,17 +626,21 @@ function ExerciseCard({
         </View>
         <Text style={exS.meta}>{exercise.sets} Sets × {exercise.reps} Reps · {exercise.rest_sec}s Rest</Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
           <TouchableOpacity style={exS.videoBtn} onPress={() => onSelect(exercise)} activeOpacity={0.8}>
-            <Ionicons name="play-circle" size={14} color={Colors.gold} />
+            <Ionicons name="play-circle" size={13} color={Colors.gold} />
             <Text style={exS.videoBtnText}>▶ Video &amp; Steps</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={exS.weightBtn} onPress={() => onLogWeight(exercise)} activeOpacity={0.8}>
+            <Ionicons name="barbell" size={13} color="#10B981" />
+            <Text style={exS.weightBtnText}>⚖️ Log Weight &amp; Reps</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[exS.checkBtn, done && exS.checkBtnDone]}
-        onPress={() => onToggle(Number(exercise.id), !done)}
+        onPress={() => onLogWeight(exercise)}
         activeOpacity={0.7}>
         {done
           ? <Feather name="check" size={18} color="#0A0A0A" />
@@ -655,6 +661,8 @@ const exS = StyleSheet.create({
   meta: { fontSize: 11, color: Colors.text2 },
   videoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,196,0,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245,196,0,0.25)' },
   videoBtnText: { fontSize: 10, fontWeight: '800', color: Colors.gold },
+  weightBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)' },
+  weightBtnText: { fontSize: 10, fontWeight: '800', color: '#10B981' },
   checkBtn: { width: 48, height: 40, borderRadius: 12, backgroundColor: Colors.card2, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   checkBtnDone: { backgroundColor: Colors.green, borderColor: Colors.green },
   checkText: { fontSize: 11, fontWeight: '800', color: Colors.gold },
@@ -672,6 +680,7 @@ export default function WorkoutScreen() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<WorkoutRecord['exercises'][0] | null>(null);
+  const [logWeightExercise, setLogWeightExercise] = useState<WorkoutRecord['exercises'][0] | null>(null);
 
   const load = useCallback(async () => {
     const data = await workoutService.getToday();
@@ -913,6 +922,7 @@ export default function WorkoutScreen() {
                 index={i}
                 onToggle={scenario === 'COMPLETED_TODAY' ? () => { } : handleToggleExercise}
                 onSelect={(selected) => setSelectedExercise(selected)}
+                onLogWeight={(selected) => setLogWeightExercise(selected)}
               />
             ))}
 
@@ -962,7 +972,14 @@ export default function WorkoutScreen() {
         </TouchableOpacity>
 
       </ScrollView>
-    </SafeAreaView>
+
+      <LogWeightModal
+        visible={!!logWeightExercise}
+        exercise={logWeightExercise}
+        onClose={() => setLogWeightExercise(null)}
+        onSuccess={load}
+      />
+      </SafeAreaView>
   );
 }
 

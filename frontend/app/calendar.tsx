@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { groqService } from '@/services/groqService';
+import { formatWeightBreakdown } from '@/utils/exerciseUtils';
 
 interface DaySummary {
   log_date: string;
@@ -26,6 +27,15 @@ interface DaySummary {
     target_muscles?: string[];
     completed_at?: string;
   };
+  exerciseLogs?: Array<{
+    exerciseName: string;
+    weightKg: number;
+    barWeightKg?: number;
+    plateWeightKg?: number;
+    repsAchieved: number;
+    isBodyweight?: boolean;
+    rpe: number;
+  }>;
   recovery?: {
     id: number;
     readiness_percentage: number;
@@ -50,7 +60,7 @@ interface DaySummary {
 export default function CalendarScreen() {
   const router = useRouter();
   const today = new Date();
-  const [currentDate, setCurrentDate] = useState(new Date()); // Live current month/year
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayNum, setSelectedDayNum] = useState<number>(today.getDate());
   const [calendarSummary, setCalendarSummary] = useState<Record<string, DaySummary>>({});
   const [loading, setLoading] = useState(false);
@@ -197,19 +207,19 @@ export default function CalendarScreen() {
           </Text>
         </View>
 
-        {selectedDayLog && (selectedDayLog.workout || selectedDayLog.recovery || selectedDayLog.nutrition) ? (
+        {selectedDayLog && (selectedDayLog.workout || selectedDayLog.recovery || selectedDayLog.nutrition || (selectedDayLog.exerciseLogs && selectedDayLog.exerciseLogs.length > 0)) ? (
           <View style={styles.card}>
             
-            {/* 1. WORKOUT SECTION */}
-            {selectedDayLog.workout ? (
+            {/* 1. WORKOUT & EXERCISE LOGS SECTION */}
+            {selectedDayLog.workout || (selectedDayLog.exerciseLogs && selectedDayLog.exerciseLogs.length > 0) ? (
               <View style={styles.sectionBlock}>
                 <View style={styles.sectionHeaderRow}>
-                  {selectedDayLog.workout.status === 'completed' ? (
+                  {selectedDayLog.workout?.status === 'completed' ? (
                     <View style={[styles.statusBadge, styles.badgeCompleted]}>
                       <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                       <Text style={[styles.statusBadgeText, { color: '#10B981' }]}>WORKOUT COMPLETED</Text>
                     </View>
-                  ) : selectedDayLog.workout.status === 'missed' ? (
+                  ) : selectedDayLog.workout?.status === 'missed' ? (
                     <View style={[styles.statusBadge, styles.badgeMissed]}>
                       <Ionicons name="close-circle" size={12} color="#EF4444" />
                       <Text style={[styles.statusBadgeText, { color: '#EF4444' }]}>WORKOUT MISSED</Text>
@@ -220,15 +230,35 @@ export default function CalendarScreen() {
                       <Text style={[styles.statusBadgeText, { color: Colors.gold }]}>PLANNED WORKOUT</Text>
                     </View>
                   )}
-                  <Text style={styles.workoutCalsText}>🔥 {selectedDayLog.workout.estimated_calories} kcal</Text>
+                  {selectedDayLog.workout?.estimated_calories ? (
+                    <Text style={styles.workoutCalsText}>🔥 {selectedDayLog.workout.estimated_calories} kcal</Text>
+                  ) : null}
                 </View>
 
-                <View style={styles.workoutBox}>
-                  <Text style={styles.workoutBoxTitle}>{selectedDayLog.workout.title}</Text>
-                  <Text style={styles.workoutMetaSub}>
-                    ⏱️ {selectedDayLog.workout.duration_minutes} mins • {selectedDayLog.workout.target_muscles?.join(', ') || 'Targeted Muscle Focus'}
-                  </Text>
-                </View>
+                {selectedDayLog.workout && (
+                  <View style={styles.workoutBox}>
+                    <Text style={styles.workoutBoxTitle}>{selectedDayLog.workout.title}</Text>
+                    <Text style={styles.workoutMetaSub}>
+                      ⏱️ {selectedDayLog.workout.duration_minutes} mins • {selectedDayLog.workout.target_muscles?.join(', ') || 'Targeted Muscle Focus'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Logged Weights & Reps List */}
+                {selectedDayLog.exerciseLogs && selectedDayLog.exerciseLogs.length > 0 && (
+                  <View style={styles.exerciseLogList}>
+                    <Text style={styles.exerciseLogListTag}>RECORDED WEIGHTS &amp; REPS (FOR OVERLOAD)</Text>
+                    {selectedDayLog.exerciseLogs.map((exLog, idx) => (
+                      <View key={idx} style={styles.exLogRow}>
+                        <Ionicons name="barbell-outline" size={14} color={Colors.gold} />
+                        <Text style={styles.exLogName}>{exLog.exerciseName}:</Text>
+                        <Text style={styles.exLogVal}>
+                          {formatWeightBreakdown(exLog)} × {exLog.repsAchieved} reps (RPE {exLog.rpe})
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             ) : (
               <View style={styles.emptySectionRow}>
@@ -243,7 +273,7 @@ export default function CalendarScreen() {
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.logPill}>
                     <Ionicons name="moon" size={12} color={Colors.gold} />
-                    <Text style={styles.logPillText}>BIO-RECOVERY & SLEEP</Text>
+                    <Text style={styles.logPillText}>BIO-RECOVERY &amp; SLEEP</Text>
                   </View>
                   <Text style={styles.readinessScoreText}>
                     Readiness {selectedDayLog.recovery.readiness_percentage}%
@@ -295,7 +325,7 @@ export default function CalendarScreen() {
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.macroPill}>
                     <Ionicons name="restaurant" size={12} color="#3B82F6" />
-                    <Text style={styles.macroPillText}>NUTRITION & MACROS</Text>
+                    <Text style={styles.macroPillText}>NUTRITION &amp; MACROS</Text>
                   </View>
                   <Text style={styles.macroTotalCals}>
                     {selectedDayLog.nutrition.totalCalories} kcal Total
@@ -411,9 +441,15 @@ const styles = StyleSheet.create({
   macroPillText: { fontSize: 10, fontWeight: '800', color: '#3B82F6' },
   macroTotalCals: { fontSize: 12, fontWeight: '800', color: Colors.text },
 
-  workoutBox: { backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  workoutBox: { backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
   workoutBoxTitle: { fontSize: 14, fontWeight: '800', color: Colors.text, marginBottom: 3 },
   workoutMetaSub: { fontSize: 11, color: Colors.text2, fontWeight: '600' },
+
+  exerciseLogList: { backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 10, borderWidth: 1, borderColor: Colors.border, gap: 6 },
+  exerciseLogListTag: { fontSize: 8.5, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8, marginBottom: 2 },
+  exLogRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  exLogName: { fontSize: 11.5, fontWeight: '700', color: Colors.text },
+  exLogVal: { fontSize: 11, color: Colors.text2, flex: 1 },
 
   grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   miniCard: { width: '48%', backgroundColor: Colors.card2, borderRadius: Radii.md, padding: 12, borderWidth: 1, borderColor: Colors.border },

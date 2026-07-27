@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { generateToken, hashPassword, verifyPassword } from '../core/security';
 import { db } from '../core/database';
+import { authenticateWithGoogle } from '../services/authentication/google';
 
 const router = Router();
 
@@ -260,6 +261,22 @@ router.post('/login', async (req: Request, res: Response) => {
     }
     const token = generateToken({ userId: user.id, email: user.email });
     res.json(authResponse(user, token));
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/auth/google/verify
+ */
+router.post('/google/verify', async (req: Request, res: Response) => {
+  try {
+    const { googleIdToken, email, name, avatar } = req.body;
+    if (!googleIdToken) {
+      return res.status(400).json({ success: false, error: 'googleIdToken is required.' });
+    }
+    const authResult = await authenticateWithGoogle({ googleIdToken, email, name, avatar });
+    res.json(authResult);
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

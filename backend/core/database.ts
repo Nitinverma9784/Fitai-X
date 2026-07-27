@@ -163,8 +163,13 @@ export async function initDb(): Promise<void> {
         plate_weight_kg NUMERIC(6,2) DEFAULT 0,
         reps_achieved INT DEFAULT 0,
         is_bodyweight BOOLEAN DEFAULT FALSE,
+        rpe INT DEFAULT 8,
+        log_date DATE DEFAULT CURRENT_DATE,
         logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE exercise_logs ADD COLUMN IF NOT EXISTS rpe INT DEFAULT 8;
+      ALTER TABLE exercise_logs ADD COLUMN IF NOT EXISTS log_date DATE DEFAULT CURRENT_DATE;
 
       CREATE TABLE IF NOT EXISTS chat_messages (
         id SERIAL PRIMARY KEY,
@@ -182,13 +187,15 @@ export async function initDb(): Promise<void> {
   }
 }
 
-// Lazy-loaded Domain Service Exports & Facade for Backward Compatibility
-import { userService, calculateLevelData } from '../services/userService';
-import { workoutService } from '../services/workoutService';
-import { recoveryService } from '../services/recoveryService';
-import { nutritionService } from '../services/nutritionService';
-import { coachService } from '../services/coachService';
-import { analyticsService } from '../services/analyticsService';
+import {
+  userService,
+  calculateLevelData,
+  workoutService,
+  recoveryService,
+  nutritionService,
+  coachService,
+  analyticsService,
+} from '../services';
 
 export { calculateLevelData };
 

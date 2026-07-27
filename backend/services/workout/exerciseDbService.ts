@@ -1,4 +1,4 @@
-import { getNextExerciseDbKey, getExerciseDbKeysCount, rapidApiHost } from '../core/config';
+import { getNextExerciseDbKey, getExerciseDbKeysCount, rapidApiHost } from '../../core/config';
 
 export interface ExerciseDbResult {
   exerciseId?: string;

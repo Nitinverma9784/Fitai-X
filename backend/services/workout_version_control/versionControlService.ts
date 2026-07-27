@@ -1,4 +1,4 @@
-import { ExerciseItem, GeneratedWorkoutPlan } from './adaptiveAiEngine';
+import { ExerciseItem, GeneratedWorkoutPlan } from '../adaptive_planning_engine/adaptiveAiEngine';
 
 export interface WorkoutCommit {
   versionId: string;
