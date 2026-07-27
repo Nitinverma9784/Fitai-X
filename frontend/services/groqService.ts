@@ -281,6 +281,16 @@ export const groqService = {
     }
   },
 
+  async getCalendarSummary(): Promise<Record<string, any>> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/calendar`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : {};
+    } catch {
+      return {};
+    }
+  },
+
   // ── Nutrition ───────────────────────────────────────────────────────────────
   async getNutritionPlan(): Promise<NutritionPlan | null> {
     try {

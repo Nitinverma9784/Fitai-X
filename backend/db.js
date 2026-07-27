@@ -23,39 +23,9 @@ const memoryDb = {
       body_fat_pct: 14.2,
     }
   ],
-  workouts: [
-    {
-      id: 1,
-      user_id: 1,
-      title: "AI Power Hypertrophy & Core Focus",
-      duration_minutes: 45,
-      estimated_calories: 420,
-      target_muscles: ["Chest", "Triceps", "Abs"],
-      why_recommendation: "Based on your 92% recovery score and 48-hour upper body rest, today is optimal for high-intensity chest & core hypertrophy.",
-      created_at: new Date()
-    }
-  ],
-  exercises: [
-    { id: 1, workout_id: 1, name: "Incline Dumbbell Press", sets: 4, reps: "10-12", rest_sec: 60, icon: "dumbbell", tip: "Keep elbows at 45 degrees for maximum upper chest activation.", completed_sets: 2 },
-    { id: 2, workout_id: 1, name: "Cable Chest Flyes", sets: 3, reps: "12-15", rest_sec: 45, icon: "activity", tip: "Squeeze tightly at full contraction for peak chest tension.", completed_sets: 1 },
-    { id: 3, workout_id: 1, name: "Triceps Dip Machine", sets: 3, reps: "10-12", rest_sec: 60, icon: "zap", tip: "Control the eccentric motion for 3 seconds per rep.", completed_sets: 0 },
-    { id: 4, workout_id: 1, name: "Hanging Leg Raises", sets: 4, reps: "15", rest_sec: 45, icon: "target", tip: "Avoid swinging; lift using lower abs.", completed_sets: 0 }
-  ],
-  recovery_logs: [
-    {
-      id: 1,
-      user_id: 1,
-      readiness_percentage: 92,
-      status_label: "Optimal Recovery State",
-      description: "HRV is 14ms above baseline and sleep efficiency hit 94%. Your neuromuscular system is primed for peak exertion.",
-      hrv_ms: 68,
-      sleep_hours: 8.2,
-      sleep_efficiency: 94,
-      muscle_soreness: "Low",
-      hydration_l: 2.4,
-      created_at: new Date()
-    }
-  ],
+  workouts: [],
+  exercises: [],
+  recovery_logs: [],
   chat_messages: [
     {
       id: 1,

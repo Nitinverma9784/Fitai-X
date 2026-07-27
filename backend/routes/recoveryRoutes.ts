@@ -1,14 +1,16 @@
 import { Router, Response } from 'express';
-import { db } from '../core/database';
+import { recoveryService } from '../services/recoveryService';
+import { userService } from '../services/userService';
 import { calculateRecoveryScore } from '../services/ai_recovery_score/score';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
+import { getLocalDateString } from '../core/config';
 
 const router = Router();
 
 router.get('/latest', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId || 1;
-    const log = await db.getLatestRecovery(userId);
+    const log = await recoveryService.getLatestRecovery(userId);
     res.json({ success: true, data: log });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -19,7 +21,7 @@ router.get('/history', authenticateToken, async (req: AuthenticatedRequest, res:
   try {
     const userId = req.user?.userId || 1;
     const limit = parseInt(String(req.query.limit || '30'), 10) || 30;
-    const history = await db.getRecoveryHistory(userId, limit);
+    const history = await recoveryService.getRecoveryHistory(userId, limit);
     res.json({ success: true, data: history });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -28,15 +30,37 @@ router.get('/history', authenticateToken, async (req: AuthenticatedRequest, res:
 
 router.post('/insights', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { sleepHours = 7.5, hrv = 65, soreness = 'Low', hydrationL = 2.5, sleepEfficiency = 90 } = req.body;
+    const {
+      sleepHours = 7.5,
+      hrv = 65,
+      soreness = 'Low',
+      hydrationL = 2.5,
+      sleepEfficiency = 90,
+      logDate,
+      forPreviousDay = true,
+    } = req.body;
     const userId = req.user?.userId || 1;
+
+    // Determine target log date for sleep/recovery:
+    // If user logs morning recovery checkin, default to yesterday's date unless logDate is specified or forPreviousDay is false.
+    let targetLogDate = logDate;
+    if (!targetLogDate) {
+      if (forPreviousDay) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        targetLogDate = getLocalDateString(yesterday);
+      } else {
+        targetLogDate = getLocalDateString();
+      }
+    }
+
     const score = await calculateRecoveryScore({
       sleepHours,
       hrvMs: hrv,
       sorenessLevel: soreness,
       hydrationL,
     });
-    const savedLog = await db.saveRecoveryLog(userId, {
+    const savedLog = await recoveryService.saveRecoveryLog(userId, {
       readinessPercentage: score.readinessPercentage,
       statusLabel: score.statusLabel,
       description: score.description,
@@ -45,9 +69,10 @@ router.post('/insights', authenticateToken, async (req: AuthenticatedRequest, re
       sleep_efficiency: sleepEfficiency,
       muscle_soreness: soreness,
       hydration_l: hydrationL,
+      logDate: targetLogDate,
     });
 
-    const xpResult = await db.awardXp(userId, 5);
+    const xpResult = await userService.awardXp(userId, 5);
 
     res.json({ success: true, data: { ...score, log: savedLog, xpEarned: 5, levelData: xpResult.levelData } });
   } catch (err: any) {

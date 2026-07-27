@@ -9,6 +9,13 @@ export const config = {
   dbUrl: process.env.DATABASE_URL || 'postgres://postgres:nitinverma@127.0.0.1:5433/fitaix',
 };
 
+export function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Groq API Key Rotation Manager
 const groqKeys = [
   process.env.GROQ_API_KEY_1,
@@ -65,4 +72,3 @@ export function getNextExerciseDbKey(): { apiKey: string | null; keyIndex: numbe
 export function getExerciseDbKeysCount(): number {
   return exerciseDbKeys.length;
 }
-
