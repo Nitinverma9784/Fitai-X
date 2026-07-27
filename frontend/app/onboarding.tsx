@@ -133,7 +133,6 @@ export default function OnboardingWizardScreen() {
                 {[
                   { id: 'male', label: 'Male ♂' },
                   { id: 'female', label: 'Female ♀' },
-                  { id: 'other', label: 'Other ⚡' },
                 ].map(g => {
                   const active = gender === g.id;
                   return (
