@@ -283,7 +283,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`⚡ FitAI Pro Backend listening on port ${PORT}`);
   console.log(`🔑 Groq API Key rotation configured with ${getApiKeys().length} key(s)`);
 });

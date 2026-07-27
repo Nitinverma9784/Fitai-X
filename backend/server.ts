@@ -37,7 +37,7 @@ app.use('/api/coach', coachRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 
-app.listen(config.port, () => {
+app.listen(config.port, '0.0.0.0', () => {
   console.log(`⚡ FitAI Pro Node.js TypeScript Backend listening on port ${config.port}`);
   console.log(`🔑 Groq API Key rotation configured with ${getGroqKeysCount()} key(s)`);
 });

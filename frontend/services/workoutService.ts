@@ -2,18 +2,9 @@
  * Workout Service — Typed API client for all workout endpoints
  */
 import { sessionService } from './sessionService';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { getApiBaseUrl } from './apiConfig';
 
-function resolveBackendUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  if (Platform.OS === 'web') return 'http://localhost:5000/api';
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) return `http://${hostUri.split(':')[0]}:5000/api`;
-  return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
-}
-
-const BASE = resolveBackendUrl();
+const BASE = getApiBaseUrl();
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json', 'x-user-id': String(sessionService.getUserId()) };

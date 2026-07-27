@@ -5,28 +5,9 @@
  */
 
 import { sessionService } from './sessionService';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { getApiBaseUrl } from './apiConfig';
 
-/**
- * Dynamically resolves the Backend API URL:
- * - On physical mobile devices (Expo Go), resolves host dev machine IP (e.g. http://192.168.x.x:5000/api)
- * - On Web / iOS Simulator, resolves http://localhost:5000/api
- * - On Android Emulator, falls back to http://10.0.2.2:5000/api
- */
-function resolveBackendUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  if (Platform.OS === 'web') return 'http://localhost:5000/api';
-
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const devMachineIp = hostUri.split(':')[0];
-    return `http://${devMachineIp}:5000/api`;
-  }
-  return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
-}
-
-const API_BASE_URL = resolveBackendUrl();
+const API_BASE_URL = getApiBaseUrl();
 
 // Build headers with Authorization Bearer token and x-user-id fallback
 function headers(extra?: Record<string, string>): Record<string, string> {

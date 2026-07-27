@@ -42,10 +42,10 @@ export default function CalendarScreen() {
           setHistoryLogs([
             {
               log_date: latest.log_date || '2026-07-24',
-              sleep_hours: parseFloat(latest.sleep_hours) || 7.5,
+              sleep_hours: parseFloat(String(latest.sleep_hours)) || 7.5,
               sleep_efficiency: latest.sleep_efficiency || 90,
               hrv_ms: latest.hrv_ms || 65,
-              hydration_l: parseFloat(latest.hydration_l) || 2.5,
+              hydration_l: parseFloat(String(latest.hydration_l)) || 2.5,
               muscle_soreness: latest.muscle_soreness || 'Low',
               readiness_percentage: latest.readiness_percentage || 88,
               workout_title: 'Chest & Triceps Hypertrophy',

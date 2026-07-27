@@ -19,25 +19,13 @@ import { sessionService } from '@/services/sessionService';
 
 const logoImg = require('@/assets/images/logo.png');
 
-import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { getBackendBaseUrl } from '../services/apiConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
-function resolveAuthApiUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
-  if (Platform.OS === 'web') return 'http://localhost:5000';
-
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const devMachineIp = hostUri.split(':')[0];
-    return `http://${devMachineIp}:5000`;
-  }
-  return Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
-}
-
-const BACKEND_URL = resolveAuthApiUrl();
+const BACKEND_URL = getBackendBaseUrl();
 
 export default function AuthScreen() {
   const router = useRouter();
