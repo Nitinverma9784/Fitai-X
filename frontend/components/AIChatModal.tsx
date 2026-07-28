@@ -126,7 +126,7 @@ export function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
     try {
       const contextualPrompt = userProfile
-        ? `[User Profile: Name=${userProfile.name}, Weight=${userProfile.weight_kg}kg, Goal=${userProfile.goal}] ${promptText}`
+        ? `[User Profile Context: Name=${userProfile.name || 'Athlete'}, Age=${userProfile.age || 'N/A'}, Height=${userProfile.height_cm || 'N/A'}cm, Weight=${userProfile.weight_kg || 'N/A'}kg, Goal=${userProfile.goal || 'General Fitness'}, Diet=${userProfile.diet_preference || 'Balanced'}, Equipment=${userProfile.equipment || 'Gym'}, Injuries=${Array.isArray(userProfile.injuries) ? userProfile.injuries.join(', ') : (userProfile.injuries || 'None')}, Time=${userProfile.time_commitment || '45m'}] ${promptText}`
         : promptText;
 
       const response = await groqService.chatWithCoach(contextualPrompt);

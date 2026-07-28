@@ -17,6 +17,7 @@ export interface UserProfile {
   equipment?: string;
   injuries?: string[];
   diet_pref?: string;
+  diet_preference?: string;
   time_commitment?: string;
   onboarding_completed?: boolean;
   auth_provider?: string;
