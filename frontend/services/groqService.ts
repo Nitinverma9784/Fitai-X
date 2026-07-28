@@ -355,12 +355,12 @@ export const groqService = {
   },
 
   // ── AI Chat Coach ───────────────────────────────────────────────────────────
-  async chatWithCoach(message: string, model: string = 'llama-3.3-70b-versatile'): Promise<string> {
+  async chatWithCoach(message: string, model: string = 'llama-3.3-70b-versatile', userProfile?: any): Promise<string> {
     try {
       const res = await fetch(`${API_BASE_URL}/coach/chat`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ message, model }),
+        body: JSON.stringify({ message, model, userProfile }),
       });
       const json = await res.json();
       return json.success ? json.response : 'FitGuru is temporarily unavailable.';
