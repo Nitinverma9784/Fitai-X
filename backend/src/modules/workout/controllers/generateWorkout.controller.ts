@@ -10,6 +10,7 @@ import { generateAdaptiveWorkoutWithGroq, WorkoutGenerationContext } from '../se
 export async function generateWorkout(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.user?.userId !== undefined ? req.user.userId : 1;
+    const { customExercises, customTitle } = req.body || {};
     const userProfile = await userService.getUser(userId);
     const history = await workoutService.getWorkoutHistory(userId, 20);
 
@@ -43,6 +44,10 @@ export async function generateWorkout(req: AuthenticatedRequest, res: Response) 
       workoutTitle: lastWorkout?.title || 'None',
     } : undefined;
 
+    const parsedCustomList = Array.isArray(customExercises) && customExercises.length > 0
+      ? customExercises.map((e: any) => (typeof e === 'string' ? e : e?.name)).filter(Boolean)
+      : undefined;
+
     const ctx: WorkoutGenerationContext = {
       userName: userProfile?.name || 'Athlete',
       gender: userProfile?.gender || 'male',
@@ -53,6 +58,8 @@ export async function generateWorkout(req: AuthenticatedRequest, res: Response) 
       timeCommitment: userProfile?.time_commitment || '45 mins',
       dayNumber: history.length,
       missedDaysCount,
+      customExercises: parsedCustomList,
+      customTitle: typeof customTitle === 'string' && customTitle.trim() ? customTitle.trim() : undefined,
       lastWorkout: lastWorkout ? {
         title: lastWorkout.title,
         targetMuscles: lastWorkout.target_muscles || [],
@@ -65,6 +72,9 @@ export async function generateWorkout(req: AuthenticatedRequest, res: Response) 
     };
 
     const plan = await generateAdaptiveWorkoutWithGroq(ctx);
+    if (ctx.customTitle) {
+      plan.title = ctx.customTitle;
+    }
 
     // Save to DB
     const savedWorkout = await workoutService.saveWorkout(userId, {

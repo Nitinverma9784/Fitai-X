@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { workoutService, WorkoutRecord, StreakDay, TodayState } from '@/services/workoutService';
 import { Video, ResizeMode } from 'expo-av';
 import { LogWeightModal } from '@/components/LogWeightModal';
+import { CustomWorkoutModal } from '@/components/CustomWorkoutModal';
 
 // ─────────────────────────────────────────────────────────────
 // STREAK CALENDAR
@@ -330,6 +331,15 @@ function cleanMediaUrl(inputUrl?: string): string {
   return url;
 }
 
+function getYoutubeEmbedUrl(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1&controls=1&rel=0`;
+  }
+  return null;
+}
+
 function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalProps) {
   const videoRef = React.useRef<Video | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -343,7 +353,6 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
       setVideoError(null);
 
       const timer = setTimeout(() => {
-        console.warn('[VideoModal] ⏱️ 10s timeout — video still not loaded');
         setLoadingVideo(false);
       }, 10000);
       return () => clearTimeout(timer);
@@ -353,14 +362,8 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
   if (!exercise || !visible) return null;
 
   const rawVideo = cleanMediaUrl(exercise.video_url || exercise.videoUrl);
+  const ytEmbed = getYoutubeEmbedUrl(rawVideo);
   const videoUrl = rawVideo;
-
-  console.log('[VideoModal] 📦 Exercise data:', JSON.stringify({
-    name: exercise.name,
-    video_url: exercise.video_url,
-    videoUrl: exercise.videoUrl,
-  }));
-  console.log('[VideoModal] 🎬 Direct ExerciseDB video URL:', videoUrl || '(none)');
 
   const rawBodymap = cleanMediaUrl(
     exercise.image_url || exercise.imageUrl || exercise.bodymap_url || exercise.bodymapUrl
@@ -382,13 +385,10 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
     setIsPlaying(true);
     if (videoRef.current) {
       try {
-        console.log('[VideoModal] ▶️ Calling playAsync()');
         await videoRef.current.playAsync();
       } catch (e: any) {
         console.error('[VideoModal] ❌ playAsync() failed:', e?.message || e);
       }
-    } else {
-      console.warn('[VideoModal] ⚠️ videoRef.current is null — Video component not mounted yet');
     }
   };
 
@@ -417,7 +417,6 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
                 <View style={evmS.loadingOverlay}>
                   <ActivityIndicator size="large" color={Colors.gold} />
                   <Text style={evmS.loadingText}>Loading Video Demo...</Text>
-                  <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 4, paddingHorizontal: 8, textAlign: 'center' }} numberOfLines={2}>{videoUrl}</Text>
                 </View>
               )}
               {videoError && (
@@ -427,7 +426,17 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
                 </View>
               )}
 
-              {Platform.OS === 'web' ? (
+              {ytEmbed ? (
+                // @ts-ignore
+                <iframe
+                  key={ytEmbed}
+                  src={ytEmbed}
+                  style={{ width: '100%', height: 210, borderRadius: 14, border: 'none', backgroundColor: '#1A1A1A' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  onLoad={() => setLoadingVideo(false)}
+                />
+              ) : Platform.OS === 'web' ? (
                 // @ts-ignore
                 <video
                   key={videoUrl}
@@ -681,6 +690,7 @@ export default function WorkoutScreen() {
   const [completing, setCompleting] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<WorkoutRecord['exercises'][0] | null>(null);
   const [logWeightExercise, setLogWeightExercise] = useState<WorkoutRecord['exercises'][0] | null>(null);
+  const [showCustomModal, setShowCustomModal] = useState(false);
 
   const load = useCallback(async () => {
     const data = await workoutService.getToday();
@@ -696,6 +706,16 @@ export default function WorkoutScreen() {
     const result = await workoutService.generate();
     if (!result.success) {
       Alert.alert('FitAI Engine Notice', result.error || 'Unable to generate your AI workout. Please try again.');
+    }
+    await load();
+    setGenerating(false);
+  };
+
+  const handleGenerateCustom = async (customExercises: string[], customTitle?: string) => {
+    setGenerating(true);
+    const result = await workoutService.generate(customExercises, customTitle);
+    if (!result.success) {
+      Alert.alert('FitAI Engine Notice', result.error || 'Unable to generate your custom AI workout. Please try again.');
     }
     await load();
     setGenerating(false);
@@ -759,6 +779,11 @@ export default function WorkoutScreen() {
       <FeedbackModal visible={showFeedback} onSubmit={handleFeedbackSubmit} onSkip={handleFeedbackSkip} />
       <AIGenerationModal visible={generating} lastWorkout={state?.lastWorkout} />
       <ExerciseVideoModal visible={!!selectedExercise} exercise={selectedExercise} onClose={() => setSelectedExercise(null)} />
+      <CustomWorkoutModal
+        visible={showCustomModal}
+        onClose={() => setShowCustomModal(false)}
+        onPlanCreated={() => load()}
+      />
 
       <ScrollView
         style={s.container}
@@ -776,9 +801,18 @@ export default function WorkoutScreen() {
                   scenario === 'READY_TO_GENERATE' ? 'Ready to Train' : "Today's Plan"}
             </Text>
           </View>
-          <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/version-control')} activeOpacity={0.8}>
-            <Feather name="git-branch" size={18} color={Colors.gold} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[s.iconBtn, { width: 'auto', paddingHorizontal: 10, flexDirection: 'row', gap: 4 }]}
+              onPress={() => setShowCustomModal(true)}
+              activeOpacity={0.8}>
+              <Ionicons name="create-outline" size={16} color={Colors.gold} />
+              <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold }}>Custom Plan</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/version-control')} activeOpacity={0.8}>
+              <Feather name="git-branch" size={18} color={Colors.gold} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Streak Calendar */}
@@ -978,6 +1012,19 @@ export default function WorkoutScreen() {
         exercise={logWeightExercise}
         onClose={() => setLogWeightExercise(null)}
         onSuccess={load}
+      />
+
+      <CustomWorkoutModal
+        visible={showCustomModal}
+        onClose={() => setShowCustomModal(false)}
+        onPlanCreated={(customExercises, customTitle) => {
+          handleGenerateCustom(customExercises, customTitle);
+        }}
+      />
+
+      <AIGenerationModal
+        visible={generating}
+        lastWorkout={state?.lastWorkout}
       />
       </SafeAreaView>
   );

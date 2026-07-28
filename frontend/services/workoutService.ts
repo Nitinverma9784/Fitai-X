@@ -3,6 +3,7 @@
  */
 import { sessionService } from './sessionService';
 import { getApiBaseUrl } from './apiConfig';
+import { VERIFIED_EXERCISE_CATALOG } from '@/constants/exerciseCatalog';
 
 const BASE = getApiBaseUrl();
 
@@ -97,9 +98,26 @@ export const workoutService = {
     } catch { return null; }
   },
 
-  async generate(): Promise<{ success: boolean; data?: WorkoutRecord; error?: string }> {
+  async getExerciseCatalog(): Promise<any[]> {
     try {
-      const res = await fetch(`${BASE}/workout/generate`, { method: 'POST', headers: headers() });
+      const res = await fetch(`${BASE}/workout/catalog`, { headers: headers() });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        return json.data;
+      }
+      return VERIFIED_EXERCISE_CATALOG;
+    } catch {
+      return VERIFIED_EXERCISE_CATALOG;
+    }
+  },
+
+  async generate(customExercises?: string[], customTitle?: string): Promise<{ success: boolean; data?: WorkoutRecord; error?: string }> {
+    try {
+      const res = await fetch(`${BASE}/workout/generate`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ customExercises, customTitle }),
+      });
       const json = await res.json();
       if (json.success) return { success: true, data: json.data };
       return { success: false, error: json.error || 'Unable to generate workout session.' };

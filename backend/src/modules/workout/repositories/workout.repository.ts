@@ -14,18 +14,40 @@ export class WorkoutRepository {
     const today = sessionDate || getLocalDateString();
 
     if (isPostgresConnected()) {
-      const wRes = await pool.query(
-        `
-        INSERT INTO workouts (user_id, title, duration_minutes, estimated_calories, target_muscles, why_recommendation, ai_reasoning, readiness_score, session_date, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
-        RETURNING *
-      `,
-        [userId, title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation, aiReasoning || '', readinessScore || 75, today]
+      // Check if an uncompleted (pending) workout row exists for today
+      const existingRes = await pool.query(
+        `SELECT * FROM workouts WHERE user_id = $1 AND session_date = $2 AND status = 'pending' ORDER BY id DESC LIMIT 1`,
+        [userId, today]
       );
 
-      const workout = wRes.rows[0];
-      const savedExercises = [];
+      let workout: any;
+      if (existingRes.rows.length > 0) {
+        const existingId = existingRes.rows[0].id;
+        await pool.query('DELETE FROM exercises WHERE workout_id = $1', [existingId]);
 
+        const updateRes = await pool.query(
+          `
+          UPDATE workouts
+          SET title = $2, duration_minutes = $3, estimated_calories = $4, target_muscles = $5, why_recommendation = $6, ai_reasoning = $7, readiness_score = $8
+          WHERE id = $1
+          RETURNING *
+        `,
+          [existingId, title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation, aiReasoning || '', readinessScore || 75]
+        );
+        workout = updateRes.rows[0];
+      } else {
+        const wRes = await pool.query(
+          `
+          INSERT INTO workouts (user_id, title, duration_minutes, estimated_calories, target_muscles, why_recommendation, ai_reasoning, readiness_score, session_date, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+          RETURNING *
+        `,
+          [userId, title, durationMinutes, estimatedCalories, targetMuscles, whyRecommendation, aiReasoning || '', readinessScore || 75, today]
+        );
+        workout = wRes.rows[0];
+      }
+
+      const savedExercises = [];
       for (const ex of exercises || []) {
         const eRes = await pool.query(
           `
@@ -58,24 +80,47 @@ export class WorkoutRepository {
       };
     }
 
-    const newId = memoryDb.workouts.length + 1;
-    const workout = {
-      id: newId,
-      user_id: userId,
-      title,
-      duration_minutes: durationMinutes,
-      estimated_calories: estimatedCalories,
-      target_muscles: targetMuscles,
-      why_recommendation: whyRecommendation,
-      ai_reasoning: aiReasoning || '',
-      readiness_score: readinessScore || 75,
-      adaptations: adaptations || [],
-      analysis_steps: analysisSteps || [],
-      session_date: today,
-      status: 'pending',
-      created_at: new Date(),
-    };
-    memoryDb.workouts.unshift(workout);
+    // In-memory DB fallback
+    const existingIndex = memoryDb.workouts.findIndex(w => w.user_id === userId && w.session_date === today && w.status === 'pending');
+    let newId: number;
+    let workout: any;
+
+    if (existingIndex !== -1) {
+      newId = memoryDb.workouts[existingIndex].id;
+      memoryDb.exercises = memoryDb.exercises.filter(e => e.workout_id !== newId);
+      workout = {
+        ...memoryDb.workouts[existingIndex],
+        title,
+        duration_minutes: durationMinutes,
+        estimated_calories: estimatedCalories,
+        target_muscles: targetMuscles,
+        why_recommendation: whyRecommendation,
+        ai_reasoning: aiReasoning || '',
+        readiness_score: readinessScore || 75,
+        adaptations: adaptations || [],
+        analysis_steps: analysisSteps || [],
+      };
+      memoryDb.workouts[existingIndex] = workout;
+    } else {
+      newId = memoryDb.workouts.length + 1;
+      workout = {
+        id: newId,
+        user_id: userId,
+        title,
+        duration_minutes: durationMinutes,
+        estimated_calories: estimatedCalories,
+        target_muscles: targetMuscles,
+        why_recommendation: whyRecommendation,
+        ai_reasoning: aiReasoning || '',
+        readiness_score: readinessScore || 75,
+        adaptations: adaptations || [],
+        analysis_steps: analysisSteps || [],
+        session_date: today,
+        status: 'pending',
+        created_at: new Date(),
+      };
+      memoryDb.workouts.unshift(workout);
+    }
 
     const savedExercises = (exercises || []).map((ex: any, idx: number) => ({
       id: memoryDb.exercises.length + idx + 1,

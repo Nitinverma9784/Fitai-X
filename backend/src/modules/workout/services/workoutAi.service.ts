@@ -43,6 +43,8 @@ export interface WorkoutGenerationContext {
     readinessPercentage: number;
     workoutTitle?: string;
   };
+  customExercises?: string[];
+  customTitle?: string;
 }
 
 export interface GeneratedExercise {
@@ -318,6 +320,49 @@ export async function generateAdaptiveWorkoutWithGroq(
 
   // Live Enrich & Filter exercises with ExerciseDB V2 API
   console.log(`🎥 Live enriching & verifying exercises for equipment (${ctx.equipment}) and time target (${targetExercises} exercises)...`);
+
+  if (ctx.customExercises && ctx.customExercises.length > 0) {
+    console.log(`🎯 Custom exercise list provided (${ctx.customExercises.length} items). Enriching via ExerciseDB API...`);
+    const customEnriched: GeneratedExercise[] = [];
+    for (let i = 0; i < ctx.customExercises.length; i++) {
+      const exName = ctx.customExercises[i];
+      const edbData = await fetchExerciseDbDetails(exName);
+      const aiMatch = resultPlan?.exercises?.[i] || {};
+
+      customEnriched.push({
+        name: edbData.name || exName,
+        sets: aiMatch.sets || 3,
+        reps: String(aiMatch.reps || '10-12'),
+        restSec: aiMatch.restSec || 60,
+        icon: aiMatch.icon || 'dumbbell',
+        tip: edbData.tip || `Perform ${exName} under strict controlled form.`,
+        targetMuscle: edbData.targetMuscle || aiMatch.targetMuscle || 'Target Muscle',
+        videoUrl: edbData.videoUrl,
+        imageUrl: edbData.imageUrl,
+        steps: edbData.steps,
+      });
+    }
+
+    const formattedReasoning = generateDecisionExplanation({
+      action: ctx.customTitle || resultPlan?.title || 'Custom Workout Plan',
+      primaryReason: resultPlan?.aiReasoning || resultPlan?.whyRecommendation || `Custom routine containing ${customEnriched.length} exercises.`,
+      readinessScore: resultPlan?.readinessScore || 85,
+    });
+
+    return {
+      title: ctx.customTitle || resultPlan?.title || `Custom Routine`,
+      durationMinutes: Math.min(120, Math.max(15, customEnriched.length * 12)),
+      estimatedCalories: Math.round(customEnriched.length * 12 * 9.5),
+      targetMuscles: Array.from(new Set(customEnriched.map(e => e.targetMuscle).filter(Boolean))),
+      whyRecommendation: resultPlan?.whyRecommendation || `Tailored custom plan featuring ${customEnriched.length} selected exercises.`,
+      aiReasoning: formattedReasoning,
+      readinessScore: resultPlan?.readinessScore || 85,
+      commitMessage: `feat: custom plan (${customEnriched.length} exercises)`,
+      adaptations: resultPlan?.adaptations || [`User selected ${customEnriched.length} exercise sequence`],
+      analysisSteps: resultPlan?.analysisSteps || [`Step 1: Programmed custom ${customEnriched.length} exercise selection`, `Step 2: Enriched HD video demos and steps via ExerciseDB API`],
+      exercises: customEnriched,
+    };
+  }
 
   const eqCat = getEquipmentCategory(ctx.equipment);
   const allowedList = eqCat === 'bodyweight'

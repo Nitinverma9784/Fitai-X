@@ -12,6 +12,8 @@ export interface ExerciseDbResult {
   overview?: string;
 }
 
+const IGNORED_MODIFIER_WORDS = new Set(['bodyweight', 'barbell', 'dumbbell', 'cable', 'machine', 'standing', 'seated', 'lying', 'body']);
+
 function scoreCandidate(targetName: string, candidateName: string): number {
   const t = targetName.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
   const c = candidateName.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -30,14 +32,14 @@ function scoreCandidate(targetName: string, candidateName: string): number {
 
   if (matches.length === tWords.length) score += 200;
 
-  // Deduct heavy score if key target words are completely missing from candidate
+  // Deduct heavy score ONLY if core target words are completely missing from candidate
   for (const tw of tWords) {
-    if (tw.length > 2 && !cWords.some(cw => cw.includes(tw) || tw.includes(cw))) {
+    if (tw.length > 2 && !IGNORED_MODIFIER_WORDS.has(tw) && !cWords.some(cw => cw.includes(tw) || tw.includes(cw))) {
       score -= 250;
     }
   }
 
-  // Penalize weird bodyweight/towel variations unless explicitly requested
+  // Penalize weird towel/chair variations unless explicitly requested
   if ((c.includes('towel') || c.includes('chair') || c.includes('door') || c.includes('bed')) && !t.includes('towel')) {
     score -= 300;
   }

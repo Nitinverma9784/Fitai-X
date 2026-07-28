@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../../core/middleware/auth.middleware';
 import { workoutService } from '../services/workout.service';
-import { fetchExerciseDbDetails } from '../services/exerciseDb.service';
 
 export async function getTodayState(req: AuthenticatedRequest, res: Response) {
   try {
@@ -29,24 +28,6 @@ export async function getTodayState(req: AuthenticatedRequest, res: Response) {
     }
 
     if (todayWorkout) {
-      if (Array.isArray(todayWorkout.exercises)) {
-        for (const ex of todayWorkout.exercises) {
-          if (!ex.video_url || !ex.video_url.includes('exercisedb.dev')) {
-            const edbData = await fetchExerciseDbDetails(ex.name);
-            if (edbData.videoUrl) {
-              ex.video_url = edbData.videoUrl;
-              ex.videoUrl = edbData.videoUrl;
-              ex.image_url = edbData.imageUrl;
-              ex.imageUrl = edbData.imageUrl;
-              ex.steps = (edbData.steps && edbData.steps.length > 0) ? edbData.steps : ex.steps;
-              ex.target_muscle = edbData.targetMuscle;
-              ex.targetMuscle = edbData.targetMuscle;
-              ex.tip = edbData.tip || ex.tip;
-            }
-          }
-        }
-      }
-
       const scenario = todayWorkout.status === 'completed' ? 'COMPLETED_TODAY' : 'HAS_WORKOUT_TODAY';
       return res.json({ success: true, scenario, workout: todayWorkout, streak, totalWorkouts, missedCount: missedDays });
     }
