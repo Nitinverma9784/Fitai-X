@@ -250,16 +250,24 @@ export class UserService {
 
   async saveUserOnboarding(userId: number = 1, onboardingData: any): Promise<any> {
     await this.ensureUserExists(userId);
-    const updates = {
-      goal: onboardingData.goal,
-      weight_kg: onboardingData.weightKg ? parseFloat(onboardingData.weightKg) : undefined,
-      height_cm: onboardingData.heightCm ? parseFloat(onboardingData.heightCm) : undefined,
-      body_fat_pct: onboardingData.bodyFatPct ? parseFloat(onboardingData.bodyFatPct) : undefined,
-      gender: onboardingData.gender,
-      equipment: onboardingData.equipment,
-      time_commitment: onboardingData.timeCommitment,
-      experience_level: onboardingData.experienceLevel,
-      injuries: onboardingData.injuries,
+    const updates: Record<string, any> = {
+      name: onboardingData.name || undefined,
+      age: onboardingData.age ? parseInt(String(onboardingData.age), 10) : undefined,
+      gender: onboardingData.gender || undefined,
+      weight_kg: onboardingData.weightKg || onboardingData.weight_kg ? parseFloat(String(onboardingData.weightKg || onboardingData.weight_kg)) : undefined,
+      height_cm: onboardingData.heightCm || onboardingData.height_cm ? parseFloat(String(onboardingData.heightCm || onboardingData.height_cm)) : undefined,
+      body_fat_pct: onboardingData.bodyFatPct || onboardingData.body_fat_pct ? parseFloat(String(onboardingData.bodyFatPct || onboardingData.body_fat_pct)) : undefined,
+      goal: onboardingData.goal || undefined,
+      equipment: onboardingData.equipment || undefined,
+      time_commitment: onboardingData.timeCommitment || onboardingData.time_commitment || undefined,
+      experience_level: onboardingData.experienceLevel || onboardingData.experience_level || undefined,
+      injuries: onboardingData.injuries || undefined,
+      diet_preference: onboardingData.dietPref || onboardingData.diet_preference || undefined,
+      daily_calories_target: onboardingData.dailyCaloriesTarget || onboardingData.daily_calories_target ? parseInt(String(onboardingData.dailyCaloriesTarget || onboardingData.daily_calories_target), 10) : undefined,
+      protein_target_g: onboardingData.proteinTargetG || onboardingData.protein_target_g ? parseInt(String(onboardingData.proteinTargetG || onboardingData.protein_target_g), 10) : undefined,
+      carbs_target_g: onboardingData.carbsTargetG || onboardingData.carbs_target_g ? parseInt(String(onboardingData.carbsTargetG || onboardingData.carbs_target_g), 10) : undefined,
+      fats_target_g: onboardingData.fatsTargetG || onboardingData.fats_target_g ? parseInt(String(onboardingData.fatsTargetG || onboardingData.fats_target_g), 10) : undefined,
+      water_target_l: onboardingData.waterTargetL || onboardingData.water_target_l ? parseFloat(String(onboardingData.waterTargetL || onboardingData.water_target_l)) : undefined,
       onboarding_completed: true,
     };
     return this.updateUser(userId, updates);

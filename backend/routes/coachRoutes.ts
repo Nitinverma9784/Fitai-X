@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { coachService } from '../services/coach/coachService';
+import { userService } from '../services/user/userService';
 import { processCoachChat } from '../services/ai_coach/chat';
 import { config } from '../core/config';
 import { authenticateToken, AuthenticatedRequest } from '../core/authMiddleware';
@@ -23,7 +24,8 @@ router.post('/chat', authenticateToken, async (req: AuthenticatedRequest, res: R
     if (message) {
       await coachService.saveChatMessage(userId, 'user', message).catch(err => console.warn('Save chat message error:', err.message));
     }
-    const responseText = await processCoachChat(message, model);
+    const userProfile = await userService.getUser(userId).catch(() => null);
+    const responseText = await processCoachChat(message, userProfile, model);
     await coachService.saveChatMessage(userId, 'ai', responseText).catch(err => console.warn('Save AI message error:', err.message));
     res.json({ success: true, response: responseText });
   } catch (err: any) {

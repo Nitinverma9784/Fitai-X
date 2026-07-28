@@ -269,7 +269,23 @@ app.post('/api/chat', async (req, res) => {
       await db.saveChatMessage(1, 'user', message);
     }
 
-    const systemPrompt = `You are FitAI Pro AI Coach, an encouraging, highly knowledgeable master strength & recovery coach. Provide concise, actionable, and inspiring advice tailored to fitness, nutrition, and exercise science. Keep responses formatted nicely with emojis.`;
+    const userProfile = await db.getUser(1).catch(() => null);
+    let userContextText = '';
+    if (userProfile) {
+      const name = userProfile.name || 'Athlete';
+      const age = userProfile.age ? `${userProfile.age} yrs` : 'Not specified';
+      const gender = userProfile.gender || 'Not specified';
+      const weight = userProfile.weight_kg ? `${userProfile.weight_kg} kg` : 'Not specified';
+      const height = userProfile.height_cm ? `${userProfile.height_cm} cm` : 'Not specified';
+      const goal = userProfile.goal || 'General Fitness';
+      const diet = userProfile.diet_preference || 'Balanced';
+      const equipment = userProfile.equipment || 'Gym';
+      const injuries = Array.isArray(userProfile.injuries) ? userProfile.injuries.join(', ') : (userProfile.injuries || 'None');
+
+      userContextText = `\nUser Onboarding Profile: Name=${name}, Age=${age}, Gender=${gender}, Weight=${weight}, Height=${height}, Goal=${goal}, Diet=${diet}, Equipment=${equipment}, Injuries=${injuries}. Tailor recommendations strictly to this user profile.`;
+    }
+
+    const systemPrompt = `You are FitAI Pro AI Coach, an encouraging, highly knowledgeable master strength & recovery coach. Provide concise, actionable, and inspiring advice tailored to fitness, nutrition, and exercise science. Keep responses formatted nicely with emojis.${userContextText}`;
     const userPrompt = message || "Give me a quick tip for maximum hypertrophy today.";
 
     const aiResponse = await callGroqWithRotation('chat', systemPrompt, userPrompt, false, model);
