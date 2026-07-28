@@ -22,6 +22,16 @@ import { workoutService, WorkoutRecord, StreakDay, TodayState } from '@/services
 import { Video, ResizeMode } from 'expo-av';
 import { LogWeightModal } from '@/components/LogWeightModal';
 import { CustomWorkoutModal } from '@/components/CustomWorkoutModal';
+import { VERIFIED_EXERCISE_CATALOG } from '@/constants/exerciseCatalog';
+
+export function getExerciseImages(ex?: any): [string, string] {
+  if (!ex) return ['https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/1.jpg'];
+  if (Array.isArray(ex.images) && ex.images.length >= 2) return ex.images;
+  const nameStr = (ex.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const found = VERIFIED_EXERCISE_CATALOG.find(c => c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === nameStr || c.id === ex.id);
+  if (found && found.images) return found.images;
+  return ['https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/1.jpg'];
+}
 
 // ─────────────────────────────────────────────────────────────
 // STREAK CALENDAR
@@ -345,12 +355,14 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
   const [isPlaying, setIsPlaying] = useState(true);
   const [loadingVideo, setLoadingVideo] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [mediaTab, setMediaTab] = useState<'img0' | 'img1' | 'video'>('img0');
 
   useEffect(() => {
     if (visible) {
       setIsPlaying(true);
       setLoadingVideo(true);
       setVideoError(null);
+      setMediaTab('img0');
 
       const timer = setTimeout(() => {
         setLoadingVideo(false);
@@ -361,6 +373,7 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
 
   if (!exercise || !visible) return null;
 
+  const images = getExerciseImages(exercise);
   const rawVideo = cleanMediaUrl(exercise.video_url || exercise.videoUrl);
   const ytEmbed = getYoutubeEmbedUrl(rawVideo);
   const videoUrl = rawVideo;
@@ -410,97 +423,126 @@ function ExerciseVideoModal({ exercise, visible, onClose }: ExerciseVideoModalPr
             </TouchableOpacity>
           </View>
 
+          {/* Media View Mode Switcher Tabs */}
+          <View style={evmS.mediaTabRow}>
+            <TouchableOpacity
+              style={[evmS.mediaTabBtn, mediaTab === 'img0' && evmS.mediaTabBtnActive]}
+              onPress={() => setMediaTab('img0')}>
+              <Ionicons name="image-outline" size={13} color={mediaTab === 'img0' ? '#0A0A0A' : Colors.text2} />
+              <Text style={[evmS.mediaTabText, mediaTab === 'img0' && evmS.mediaTabTextActive]}>Start Pos (1)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[evmS.mediaTabBtn, mediaTab === 'img1' && evmS.mediaTabBtnActive]}
+              onPress={() => setMediaTab('img1')}>
+              <Ionicons name="image" size={13} color={mediaTab === 'img1' ? '#0A0A0A' : Colors.text2} />
+              <Text style={[evmS.mediaTabText, mediaTab === 'img1' && evmS.mediaTabTextActive]}>Finish Pos (2)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[evmS.mediaTabBtn, mediaTab === 'video' && evmS.mediaTabBtnActive]}
+              onPress={() => setMediaTab('video')}>
+              <Ionicons name="play-circle" size={13} color={mediaTab === 'video' ? '#0A0A0A' : Colors.text2} />
+              <Text style={[evmS.mediaTabText, mediaTab === 'video' && evmS.mediaTabTextActive]}>Video Demo</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
-            {/* Video Player Box */}
-            <View style={evmS.videoBox}>
-              {loadingVideo && (
-                <View style={evmS.loadingOverlay}>
-                  <ActivityIndicator size="large" color={Colors.gold} />
-                  <Text style={evmS.loadingText}>Loading Video Demo...</Text>
+            {/* Display Media Container */}
+            {mediaTab === 'img0' ? (
+              <View style={evmS.imageBox}>
+                <Image source={{ uri: images[0] }} style={evmS.displayImg} resizeMode="contain" />
+                <View style={evmS.imgTagBadge}>
+                  <Text style={evmS.imgTagText}>START POSITION</Text>
                 </View>
-              )}
-              {videoError && (
-                <View style={{ position: 'absolute', bottom: 6, left: 6, right: 6, backgroundColor: 'rgba(255,50,50,0.85)', borderRadius: 8, padding: 6, zIndex: 20 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>❌ VIDEO ERROR</Text>
-                  <Text style={{ fontSize: 8, color: '#ffd0d0', marginTop: 2 }} numberOfLines={3}>{videoError}</Text>
+              </View>
+            ) : mediaTab === 'img1' ? (
+              <View style={evmS.imageBox}>
+                <Image source={{ uri: images[1] }} style={evmS.displayImg} resizeMode="contain" />
+                <View style={evmS.imgTagBadge}>
+                  <Text style={evmS.imgTagText}>FINISH POSITION</Text>
                 </View>
-              )}
-
-              {ytEmbed ? (
-                // @ts-ignore
-                <iframe
-                  key={ytEmbed}
-                  src={ytEmbed}
-                  style={{ width: '100%', height: 210, borderRadius: 14, border: 'none', backgroundColor: '#1A1A1A' }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  onLoad={() => setLoadingVideo(false)}
-                />
-              ) : Platform.OS === 'web' ? (
-                // @ts-ignore
-                <video
-                  key={videoUrl}
-                  src={videoUrl}
-                  controls
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  onLoadedData={() => setLoadingVideo(false)}
-                  onCanPlay={() => setLoadingVideo(false)}
-                  onError={() => setLoadingVideo(false)}
-                  style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A', objectFit: 'contain' }}
-                />
-              ) : (
-                <Video
-                  ref={videoRef}
-                  style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A' }}
-                  source={{ uri: videoUrl }}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  isLooping
-                  shouldPlay={true}
-                  isMuted={true}
-                  onLoad={(status: any) => {
-                    console.log('[VideoModal] ✅ onLoad fired — video loaded successfully', JSON.stringify(status));
-                    setLoadingVideo(false);
-                    setVideoError(null);
-                  }}
-                  onPlaybackStatusUpdate={(status: any) => {
-                    if (status.isLoaded) {
-                      if (!status.isBuffering) setLoadingVideo(false);
-                      if (status.error) {
-                        console.error('[VideoModal] ❌ Playback error in status:', status.error);
-                        setVideoError(String(status.error));
-                      }
-                    } else if (status.error) {
-                      console.error('[VideoModal] ❌ Status error (not loaded):', status.error);
-                      setVideoError(String(status.error));
-                      setLoadingVideo(false);
-                    }
-                  }}
-                  onError={(e: any) => {
-                    const msg = typeof e === 'string' ? e : e?.message || JSON.stringify(e);
-                    console.error('[VideoModal] ❌ onError fired:', msg);
-                    console.error('[VideoModal] ❌ Failed video URL was:', videoUrl);
-                    setVideoError(msg);
-                    setLoadingVideo(false);
-                  }}
-                />
-              )}
-
-              {!isPlaying && Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  style={evmS.startVideoOverlay}
-                  onPress={handleStartVideo}
-                  activeOpacity={0.85}>
-                  <View style={evmS.playCircle}>
-                    <Ionicons name="play" size={26} color="#0A0A0A" style={{ marginLeft: 3 }} />
+              </View>
+            ) : (
+              /* Video Player Box */
+              <View style={evmS.videoBox}>
+                {loadingVideo && (
+                  <View style={evmS.loadingOverlay}>
+                    <ActivityIndicator size="large" color={Colors.gold} />
+                    <Text style={evmS.loadingText}>Loading Video Demo...</Text>
                   </View>
-                  <Text style={evmS.startVideoText}>START VIDEO</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                )}
+                {videoError && (
+                  <View style={{ position: 'absolute', bottom: 6, left: 6, right: 6, backgroundColor: 'rgba(255,50,50,0.85)', borderRadius: 8, padding: 6, zIndex: 20 }}>
+                    <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>❌ VIDEO ERROR</Text>
+                    <Text style={{ fontSize: 8, color: '#ffd0d0', marginTop: 2 }} numberOfLines={3}>{videoError}</Text>
+                  </View>
+                )}
+
+                {ytEmbed ? (
+                  // @ts-ignore
+                  <iframe
+                    key={ytEmbed}
+                    src={ytEmbed}
+                    style={{ width: '100%', height: 210, borderRadius: 14, border: 'none', backgroundColor: '#1A1A1A' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    onLoad={() => setLoadingVideo(false)}
+                  />
+                ) : Platform.OS === 'web' ? (
+                  // @ts-ignore
+                  <video
+                    key={videoUrl}
+                    src={videoUrl}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    onLoadedData={() => setLoadingVideo(false)}
+                    onCanPlay={() => setLoadingVideo(false)}
+                    onError={() => setLoadingVideo(false)}
+                    style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <Video
+                    ref={videoRef}
+                    style={{ width: '100%', height: 210, borderRadius: 14, backgroundColor: '#1A1A1A' }}
+                    source={{ uri: videoUrl }}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    isLooping
+                    shouldPlay={true}
+                    isMuted={true}
+                    onLoad={(status: any) => {
+                      setLoadingVideo(false);
+                      setVideoError(null);
+                    }}
+                    onPlaybackStatusUpdate={(status: any) => {
+                      if (status.isLoaded) {
+                        if (!status.isBuffering) setLoadingVideo(false);
+                      }
+                    }}
+                    onError={(e: any) => {
+                      setVideoError('Video unavailable');
+                      setLoadingVideo(false);
+                    }}
+                  />
+                )}
+
+                {!isPlaying && Platform.OS !== 'web' && (
+                  <TouchableOpacity
+                    style={evmS.startVideoOverlay}
+                    onPress={handleStartVideo}
+                    activeOpacity={0.85}>
+                    <View style={evmS.playCircle}>
+                      <Ionicons name="play" size={26} color="#0A0A0A" style={{ marginLeft: 3 }} />
+                    </View>
+                    <Text style={evmS.startVideoText}>START VIDEO</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* Reps & Sets Metadata Bar */}
             <View style={evmS.metaBar}>
@@ -575,6 +617,17 @@ const evmS = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '800', color: Colors.text },
   closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
 
+  mediaTabRow: { flexDirection: 'row', gap: 6, marginBottom: 12, backgroundColor: Colors.card, padding: 4, borderRadius: 10, borderWidth: 1, borderColor: Colors.border },
+  mediaTabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: 8 },
+  mediaTabBtnActive: { backgroundColor: Colors.gold },
+  mediaTabText: { fontSize: 11, fontWeight: '700', color: Colors.text2 },
+  mediaTabTextActive: { color: '#0A0A0A', fontWeight: '800' },
+
+  imageBox: { position: 'relative', width: '100%', height: 210, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1A1A1A', marginBottom: 14, justifyContent: 'center', alignItems: 'center' },
+  displayImg: { width: '100%', height: '100%', backgroundColor: '#141414' },
+  imgTagBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(245,196,0,0.3)' },
+  imgTagText: { fontSize: 9, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8 },
+
   videoBox: { position: 'relative', width: '100%', height: 210, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1A1A1A', marginBottom: 14, justifyContent: 'center', alignItems: 'center' },
   loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#141414', zIndex: 10, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontSize: 12, fontWeight: '700', color: Colors.gold, letterSpacing: 0.5 },
@@ -622,11 +675,12 @@ function ExerciseCard({
   onLogWeight: (ex: WorkoutRecord['exercises'][0]) => void;
 }) {
   const done = !!exercise.is_completed;
+  const images = getExerciseImages(exercise);
 
   return (
     <View style={[exS.card, done && exS.cardDone]}>
       <TouchableOpacity style={exS.numWrap} onPress={() => onSelect(exercise)}>
-        <Text style={exS.numText}>{index + 1}</Text>
+        <Image source={{ uri: images[0] }} style={exS.cardThumb} />
       </TouchableOpacity>
 
       <TouchableOpacity style={exS.info} onPress={() => onSelect(exercise)} activeOpacity={0.7}>
@@ -637,8 +691,8 @@ function ExerciseCard({
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
           <TouchableOpacity style={exS.videoBtn} onPress={() => onSelect(exercise)} activeOpacity={0.8}>
-            <Ionicons name="play-circle" size={13} color={Colors.gold} />
-            <Text style={exS.videoBtnText}>▶ Video &amp; Steps</Text>
+            <Ionicons name="images-outline" size={13} color={Colors.gold} />
+            <Text style={exS.videoBtnText}>🖼️ Photos &amp; Video</Text>
           </TouchableOpacity>
           <TouchableOpacity style={exS.weightBtn} onPress={() => onLogWeight(exercise)} activeOpacity={0.8}>
             <Ionicons name="barbell" size={13} color="#10B981" />
@@ -663,7 +717,8 @@ function ExerciseCard({
 const exS = StyleSheet.create({
   card: { backgroundColor: Colors.card, borderRadius: Radii.lg, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardDone: { borderColor: Colors.green, opacity: 0.75 },
-  numWrap: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.card2, alignItems: 'center', justifyContent: 'center' },
+  numWrap: { width: 44, height: 44, borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.card2 },
+  cardThumb: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#222' },
   numText: { fontSize: 12, fontWeight: '800', color: Colors.gold },
   info: { flex: 1 },
   name: { fontSize: 14, fontWeight: '700', color: Colors.text, marginBottom: 2 },

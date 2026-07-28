@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Colors, Radii, Spacing } from '@/constants/theme';
@@ -29,6 +30,7 @@ interface SelectedExercise {
   reps: string;
   restSec: number;
   icon: string;
+  images?: [string, string];
   videoUrl?: string;
   steps?: string[];
   tip?: string;
@@ -83,6 +85,7 @@ export function CustomWorkoutModal({ visible, onClose, onPlanCreated }: CustomWo
       reps: '10-12',
       restSec: 60,
       icon: item.icon || 'dumbbell',
+      images: item.images,
       videoUrl: item.videoUrl,
       steps: item.steps,
       tip: item.tip,
@@ -175,7 +178,10 @@ export function CustomWorkoutModal({ visible, onClose, onPlanCreated }: CustomWo
             ) : (
               selectedExercises.map((ex, idx) => (
                 <View key={`${ex.name}-${idx}`} style={styles.selectedRow}>
-                  <Text style={styles.exNum}>{idx + 1}</Text>
+                  <Image
+                    source={{ uri: (ex.images && ex.images[0]) ? ex.images[0] : 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg' }}
+                    style={styles.exThumb}
+                  />
                   <View style={styles.exInfo}>
                     <Text style={styles.exName}>{ex.name}</Text>
                     <Text style={styles.exTarget}>{ex.targetMuscle}</Text>
@@ -261,11 +267,10 @@ export function CustomWorkoutModal({ visible, onClose, onPlanCreated }: CustomWo
               ) : (
                 filteredCatalog.map(item => {
                   const isSelected = selectedExercises.some(ex => ex.name === item.name);
+                  const thumbUri = (item.images && item.images[0]) ? item.images[0] : 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg';
                   return (
                     <View key={item.name} style={styles.itemRow}>
-                      <View style={styles.itemIconBox}>
-                        <Ionicons name="barbell-outline" size={18} color={Colors.gold} />
-                      </View>
+                      <Image source={{ uri: thumbUri }} style={styles.itemThumb} />
                       <View style={styles.itemMain}>
                         <Text style={styles.itemName}>{item.name}</Text>
                         <Text style={styles.itemSub}>{item.targetMuscle || item.category} • {item.equipment || 'Gym'}</Text>
@@ -328,6 +333,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
   emptySub: { fontSize: 12, color: Colors.text2, textAlign: 'center', paddingHorizontal: 20 },
   selectedRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#141414', borderRadius: 8, padding: 10, marginBottom: 8, gap: 8, borderWidth: 1, borderColor: Colors.border },
+  exThumb: { width: 40, height: 40, borderRadius: 6, backgroundColor: '#222' },
   exNum: { fontSize: 12, fontWeight: '900', color: Colors.gold, width: 16 },
   exInfo: { flex: 1 },
   exName: { fontSize: 13, fontWeight: '700', color: Colors.text },
@@ -349,6 +355,7 @@ const styles = StyleSheet.create({
   pillTextActive: { color: Colors.gold, fontWeight: '700' },
   catalogList: { gap: 8 },
   itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#141414', borderRadius: 8, padding: 10, gap: 10, borderWidth: 1, borderColor: Colors.border },
+  itemThumb: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#222' },
   itemIconBox: { width: 32, height: 32, borderRadius: 6, backgroundColor: 'rgba(245,196,0,0.1)', alignItems: 'center', justifyContent: 'center' },
   itemMain: { flex: 1 },
   itemName: { fontSize: 13, fontWeight: '700', color: Colors.text },
