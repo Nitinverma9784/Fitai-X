@@ -34,16 +34,32 @@ export class UserService {
 
   async saveUserOnboarding(userId: number = 1, onboardingData: any): Promise<any> {
     await this.ensureUserExists(userId);
-    const updates = {
-      goal: onboardingData.goal,
-      weight_kg: onboardingData.weightKg ? parseFloat(onboardingData.weightKg) : undefined,
-      height_cm: onboardingData.heightCm ? parseFloat(onboardingData.heightCm) : undefined,
-      body_fat_pct: onboardingData.bodyFatPct ? parseFloat(onboardingData.bodyFatPct) : undefined,
+
+    const weightKg = onboardingData.weightKg || onboardingData.weight_kg ? parseFloat(String(onboardingData.weightKg || onboardingData.weight_kg)) : undefined;
+    const heightCm = onboardingData.heightCm || onboardingData.height_cm ? parseFloat(String(onboardingData.heightCm || onboardingData.height_cm)) : undefined;
+
+    let dailyCaloriesTarget = onboardingData.dailyCaloriesTarget || onboardingData.daily_calories_target;
+    let proteinTargetG = onboardingData.proteinTargetG || onboardingData.protein_target_g;
+    if (weightKg) {
+      proteinTargetG = proteinTargetG || Math.round(weightKg * 2.0);
+      dailyCaloriesTarget = dailyCaloriesTarget || Math.round(weightKg * 32);
+    }
+
+    const updates: Record<string, any> = {
+      name: onboardingData.name || undefined,
+      age: onboardingData.age ? parseInt(String(onboardingData.age), 10) : undefined,
       gender: onboardingData.gender,
+      weight_kg: weightKg,
+      height_cm: heightCm,
+      body_fat_pct: onboardingData.bodyFatPct || onboardingData.body_fat_pct ? parseFloat(String(onboardingData.bodyFatPct || onboardingData.body_fat_pct)) : undefined,
+      goal: onboardingData.goal,
+      diet_preference: onboardingData.dietPref || onboardingData.diet_preference || onboardingData.diet,
       equipment: onboardingData.equipment,
-      time_commitment: onboardingData.timeCommitment,
-      experience_level: onboardingData.experienceLevel,
+      time_commitment: onboardingData.timeCommitment || onboardingData.time_commitment,
+      experience_level: onboardingData.experienceLevel || onboardingData.experience_level,
       injuries: onboardingData.injuries,
+      daily_calories_target: dailyCaloriesTarget,
+      protein_target_g: proteinTargetG,
       onboarding_completed: true,
     };
     return this.updateUser(userId, updates);
@@ -66,16 +82,76 @@ export class UserService {
       }
     }
 
+    const achievements = [
+      {
+        id: 'first_workout',
+        emoji: '🏋️',
+        name: 'First Blood',
+        description: 'Complete your first custom workout',
+        unlocked: completedCount >= 1,
+        current: Math.min(completedCount, 1),
+        target: 1,
+        progressPct: Math.min(100, Math.round((completedCount / 1) * 100)),
+      },
+      {
+        id: 'streak_3d',
+        emoji: '🔥',
+        name: 'Consistency Kick',
+        description: 'Maintain a 3-day workout streak',
+        unlocked: currentStreak >= 3,
+        current: Math.min(currentStreak, 3),
+        target: 3,
+        progressPct: Math.min(100, Math.round((currentStreak / 3) * 100)),
+      },
+      {
+        id: 'level_5',
+        emoji: '🥉',
+        name: 'Bronze Athlete',
+        description: 'Reach Level 5 (450+ XP)',
+        unlocked: user.level >= 5,
+        current: Math.min(user.level, 5),
+        target: 5,
+        progressPct: Math.min(100, Math.round((user.level / 5) * 100)),
+      },
+      {
+        id: 'workouts_10',
+        emoji: '⚡',
+        name: 'Iron Will',
+        description: 'Complete 10 total sessions',
+        unlocked: completedCount >= 10,
+        current: Math.min(completedCount, 10),
+        target: 10,
+        progressPct: Math.min(100, Math.round((completedCount / 10) * 100)),
+      },
+    ];
+
+    const levelData = {
+      xp: user.xp || 0,
+      level: user.level || 1,
+      levelTitle: user.levelTitle || 'Novice Trainee',
+      xpCurrentLevelStart: user.xpCurrentLevelStart || 0,
+      xpNextLevelStart: user.xpNextLevelStart || 100,
+      xpInCurrentLevel: user.xpInCurrentLevel || 0,
+      xpNeeded: user.xpNeeded || 100,
+      progressPct: user.progressPct || 0,
+      xpToNextLevel: user.xpToNextLevel || 100,
+    };
+
     return {
       userId,
-      level: user.level,
-      xp: user.xp,
-      progressPct: user.progressPct,
-      xpForCurrentLevel: user.xpForCurrentLevel,
-      xpRequiredForNextLevel: user.xpRequiredForNextLevel,
+      user,
+      stats: {
+        totalWorkouts: history.length,
+        completedWorkouts: completedCount,
+        currentStreak,
+        xp: user.xp || 0,
+        level: user.level || 1,
+        levelTitle: user.levelTitle || 'Novice Trainee',
+      },
+      levelData,
+      achievements,
       completedWorkouts: completedCount,
       currentStreak,
-      streakDays: currentStreak,
       tier: user.tier || 'FITAI PRO ATHLETE',
     };
   }

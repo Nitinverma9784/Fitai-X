@@ -16,6 +16,7 @@ import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { groqService, UserProfile } from '@/services/groqService';
+import { sessionService } from '@/services/sessionService';
 
 const GOALS = [
   'Muscle Gain & Hypertrophy',
@@ -63,17 +64,33 @@ export default function EditProfileScreen() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const u = await groqService.getUserProfile();
+        let u = await groqService.getUserProfile();
+        if (!u || !u.weight_kg) {
+          const statsRes = await groqService.getUserStats();
+          if (statsRes && statsRes.user) {
+            u = statsRes.user;
+          }
+        }
+        const s = sessionService.get();
+
+        const cleanNumStr = (val: any) => {
+          if (val === undefined || val === null || val === '') return '';
+          const n = parseFloat(String(val));
+          return isNaN(n) ? String(val) : String(n);
+        };
+
         if (u) {
-          setName(u.name ?? '');
-          setAge(String(u.age ?? ''));
-          setHeightCm(String(u.height_cm ?? ''));
-          setWeightKg(String(u.weight_kg ?? ''));
-          setGoal(u.goal ?? GOALS[0]);
-          setEquipment(u.equipment ?? EQUIPMENT_OPTIONS[0]);
+          setName((u.name && u.name !== 'Athlete' && u.name !== 'FitAI Member' ? u.name : s?.name) ?? '');
+          setAge(cleanNumStr(u.age ?? (u as any).age));
+          setHeightCm(cleanNumStr(u.height_cm ?? (u as any).heightCm));
+          setWeightKg(cleanNumStr(u.weight_kg ?? (u as any).weightKg));
+          setGoal(u.goal || GOALS[0]);
+          setEquipment(u.equipment || EQUIPMENT_OPTIONS[0]);
           setInjuries(u.injuries && u.injuries.length > 0 ? u.injuries : ['None']);
-          setDietPref(u.diet_pref ?? DIET_OPTIONS[0]);
-          setTimeCommitment(u.time_commitment ?? TIME_OPTIONS[1]);
+          setDietPref(u.diet_preference || u.diet_pref || (u as any).dietPref || DIET_OPTIONS[0]);
+          setTimeCommitment(u.time_commitment || TIME_OPTIONS[1]);
+        } else if (s) {
+          setName(s.name ?? '');
         }
       } catch {
         // Use defaults silently
@@ -109,11 +126,19 @@ export default function EditProfileScreen() {
         goal,
         equipment,
         injuries,
+        diet_preference: dietPref,
         diet_pref: dietPref,
         time_commitment: timeCommitment,
       };
       const result = await groqService.updateProfile(payload);
       if (result) {
+        const s = sessionService.get();
+        if (s) {
+          sessionService.save({
+            ...s,
+            name: result.name || payload.name || s.name,
+          });
+        }
         router.back();
       } else {
         Alert.alert('Save Failed', 'Could not save your profile. Please check your connection and try again.');

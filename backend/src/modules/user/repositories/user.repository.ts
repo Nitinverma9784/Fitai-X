@@ -31,6 +31,7 @@ export class UserRepository {
            ON CONFLICT (id) DO NOTHING`,
           [userId, 'Athlete', `athlete_${userId}@fitai.pro`, 'AT', 0, false]
         );
+        await pool.query(`SELECT setval('users_id_seq', (SELECT GREATEST(COALESCE(MAX(id), 0), 1) FROM users))`).catch(() => {});
       }
     } catch (err: any) {
       console.warn(`⚠️ ensureUserExists error for userId=${userId}:`, err.message);
@@ -45,7 +46,13 @@ export class UserRepository {
       if (res.rows.length > 0) {
         const u = res.rows[0];
         const lvl = calculateLevelData(u.xp || 0);
-        return { ...u, ...lvl };
+        return {
+          ...u,
+          diet_pref: u.diet_preference || u.diet_pref,
+          weightKg: u.weight_kg,
+          heightCm: u.height_cm,
+          ...lvl
+        };
       }
     }
 
@@ -57,7 +64,13 @@ export class UserRepository {
       xp: 0,
     };
     const lvl = calculateLevelData(memUser.xp || 0);
-    return { ...memUser, ...lvl };
+    return {
+      ...memUser,
+      diet_pref: memUser.diet_preference || memUser.diet_pref,
+      weightKg: memUser.weight_kg,
+      heightCm: memUser.height_cm,
+      ...lvl
+    };
   }
 
   async getUserByEmail(email: string): Promise<any> {
@@ -69,7 +82,13 @@ export class UserRepository {
       if (res.rows.length > 0) {
         const u = res.rows[0];
         const lvl = calculateLevelData(u.xp || 0);
-        return { ...u, ...lvl };
+        return {
+          ...u,
+          diet_pref: u.diet_preference || u.diet_pref,
+          weightKg: u.weight_kg,
+          heightCm: u.height_cm,
+          ...lvl
+        };
       }
       return null;
     }
@@ -77,7 +96,13 @@ export class UserRepository {
     const memUser = memoryDb.users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
     if (memUser) {
       const lvl = calculateLevelData(memUser.xp || 0);
-      return { ...memUser, ...lvl };
+      return {
+        ...memUser,
+        diet_pref: memUser.diet_preference || memUser.diet_pref,
+        weightKg: memUser.weight_kg,
+        heightCm: memUser.height_cm,
+        ...lvl
+      };
     }
     return null;
   }
@@ -88,16 +113,35 @@ export class UserRepository {
     const provider = data.provider || 'email';
 
     if (isPostgresConnected()) {
-      const res = await pool.query(
-        `INSERT INTO users (name, email, auth_provider, avatar, password_hash, xp, onboarding_completed)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, avatar = EXCLUDED.avatar
-         RETURNING *`,
-        [data.name, cleanEmail, provider, avatar, data.passwordHash || null, 0, false]
-      );
-      const u = res.rows[0];
-      const lvl = calculateLevelData(u.xp || 0);
-      return { ...u, ...lvl };
+      try {
+        await pool.query(`SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users))`).catch(() => {});
+        const res = await pool.query(
+          `INSERT INTO users (name, email, auth_provider, avatar, password_hash, xp, onboarding_completed)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, avatar = EXCLUDED.avatar
+           RETURNING *`,
+          [data.name, cleanEmail, provider, avatar, data.passwordHash || null, 0, false]
+        );
+        const u = res.rows[0];
+        const lvl = calculateLevelData(u.xp || 0);
+        return { ...u, ...lvl };
+      } catch (err: any) {
+        if (err.message && err.message.includes('users_pkey')) {
+          console.warn('⚠️ users_pkey sequence mismatch detected, syncing sequence...');
+          await pool.query(`SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM users))`).catch(() => {});
+          const retryRes = await pool.query(
+            `INSERT INTO users (name, email, auth_provider, avatar, password_hash, xp, onboarding_completed)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, avatar = EXCLUDED.avatar
+             RETURNING *`,
+            [data.name, cleanEmail, provider, avatar, data.passwordHash || null, 0, false]
+          );
+          const u = retryRes.rows[0];
+          const lvl = calculateLevelData(u.xp || 0);
+          return { ...u, ...lvl };
+        }
+        throw err;
+      }
     }
 
     const newId = memoryDb.users.length > 0 ? Math.max(...memoryDb.users.map(u => u.id)) + 1 : 1;
@@ -155,16 +199,21 @@ export class UserRepository {
     const allowedFields = [
       'name', 'email', 'avatar', 'tier', 'goal', 'weight_kg', 'height_cm',
       'body_fat_pct', 'gender', 'age', 'equipment', 'time_commitment',
-      'experience_level', 'injuries', 'diet_preference', 'daily_calories_target',
+      'experience_level', 'injuries', 'diet_preference', 'diet_pref', 'daily_calories_target',
       'protein_target_g', 'carbs_target_g', 'fats_target_g', 'water_target_l',
       'onboarding_completed', 'xp'
     ];
 
     const filtered: Record<string, any> = {};
     for (const key of Object.keys(updates)) {
+      if (updates[key] === undefined) continue;
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
       if (allowedFields.includes(snakeKey)) {
         filtered[snakeKey] = updates[key];
+      }
+      if (snakeKey === 'diet_pref' || snakeKey === 'diet_preference') {
+        filtered['diet_pref'] = updates[key];
+        filtered['diet_preference'] = updates[key];
       }
     }
 

@@ -26,20 +26,61 @@ export default function OnboardingWizardScreen() {
   // Form State
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
-  const [age, setAge] = useState('25');
-  const [heightCm, setHeightCm] = useState('175');
-  const [weightKg, setWeightKg] = useState('70');
+  const [age, setAge] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
   const [primaryGoal, setPrimaryGoal] = useState('Muscle Gain & Hypertrophy');
   const [equipment, setEquipment] = useState('Commercial Gym');
   const [injuries, setInjuries] = useState<string[]>(['None']);
   const [dietPref, setDietPref] = useState('High Protein Non-Veg');
   const [timeCommitment, setTimeCommitment] = useState('45 mins');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const totalSteps = 6;
 
+  const validateStep1 = (): boolean => {
+    setErrorMsg(null);
+    if (!name.trim()) {
+      setErrorMsg('Please enter your name.');
+      return false;
+    }
+    const ageNum = parseInt(age.trim(), 10);
+    if (!age.trim() || isNaN(ageNum) || ageNum <= 0 || ageNum > 120) {
+      setErrorMsg('Age is mandatory (e.g. 25).');
+      return false;
+    }
+    const heightNum = parseFloat(heightCm.trim());
+    if (!heightCm.trim() || isNaN(heightNum) || heightNum <= 50 || heightNum > 280) {
+      setErrorMsg('Height in cm is mandatory (e.g. 175).');
+      return false;
+    }
+    const weightNum = parseFloat(weightKg.trim());
+    if (!weightKg.trim() || isNaN(weightNum) || weightNum <= 20 || weightNum > 400) {
+      setErrorMsg('Weight in kg is mandatory (e.g. 70).');
+      return false;
+    }
+    return true;
+  };
+
   const handleSkip = async () => {
+    if (!validateStep1()) {
+      setStep(1);
+      return;
+    }
     setSubmitting(true);
     try {
+      await groqService.submitOnboarding({
+        name: name.trim(),
+        gender,
+        age: age.trim(),
+        heightCm: heightCm.trim(),
+        weightKg: weightKg.trim(),
+        goal: primaryGoal,
+        equipment,
+        injuries,
+        dietPref,
+        timeCommitment,
+      });
       await groqService.updateProfile({ onboarding_completed: true });
       sessionService.markOnboarded();
     } catch {
@@ -51,17 +92,21 @@ export default function OnboardingWizardScreen() {
   };
 
   const handleNext = async () => {
+    if (step === 1 && !validateStep1()) {
+      return;
+    }
+
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
       setSubmitting(true);
       try {
-        await groqService.submitOnboarding({
-          name: name || 'Athlete',
+        const updated = await groqService.submitOnboarding({
+          name: name.trim() || 'Athlete',
           gender,
-          age,
-          heightCm,
-          weightKg,
+          age: age.trim(),
+          heightCm: heightCm.trim(),
+          weightKg: weightKg.trim(),
           goal: primaryGoal,
           equipment,
           injuries,
@@ -69,9 +114,23 @@ export default function OnboardingWizardScreen() {
           timeCommitment,
         });
         await groqService.updateProfile({ onboarding_completed: true });
-        sessionService.markOnboarded();
+        const s = sessionService.get();
+        if (s) {
+          sessionService.save({
+            ...s,
+            name: updated?.name || name.trim() || s.name,
+            isOnboarded: true,
+          });
+        } else {
+          sessionService.markOnboarded();
+        }
       } catch {
-        sessionService.markOnboarded();
+        const s = sessionService.get();
+        if (s && name.trim()) {
+          sessionService.save({ ...s, name: name.trim(), isOnboarded: true });
+        } else {
+          sessionService.markOnboarded();
+        }
       } finally {
         setSubmitting(false);
         router.replace('/(tabs)');
@@ -80,6 +139,7 @@ export default function OnboardingWizardScreen() {
   };
 
   const handleBack = () => {
+    setErrorMsg(null);
     if (step > 1) setStep(step - 1);
   };
 
@@ -123,20 +183,27 @@ export default function OnboardingWizardScreen() {
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
+        {errorMsg ? (
+          <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: '#EF4444', borderRadius: 10, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="alert-circle" size={18} color="#EF4444" />
+            <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '600', flex: 1 }}>{errorMsg}</Text>
+          </View>
+        ) : null}
+
         {/* Step 1: Basic Profile */}
         {step === 1 && (
           <View style={styles.stepBox}>
             <Text style={styles.stepTitle}>Let's build your athletic profile</Text>
-            <Text style={styles.stepSub}>Required for personalized AI hypertrophy & recovery</Text>
+            <Text style={styles.stepSub}>Mandatory for personalized AI hypertrophy & recovery</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Your Name</Text>
+              <Text style={styles.label}>Your Name *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your name"
+                placeholder="Enter your full name"
                 placeholderTextColor={Colors.text2}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(val) => { setErrorMsg(null); setName(val); }}
               />
             </View>
 
@@ -164,18 +231,39 @@ export default function OnboardingWizardScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Age</Text>
-              <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" />
+              <Text style={styles.label}>Age *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 25"
+                placeholderTextColor={Colors.text2}
+                value={age}
+                onChangeText={(val) => { setErrorMsg(null); setAge(val); }}
+                keyboardType="numeric"
+              />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Height (cm)</Text>
-              <TextInput style={styles.input} value={heightCm} onChangeText={setHeightCm} keyboardType="numeric" />
+              <Text style={styles.label}>Height (cm) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 175"
+                placeholderTextColor={Colors.text2}
+                value={heightCm}
+                onChangeText={(val) => { setErrorMsg(null); setHeightCm(val); }}
+                keyboardType="numeric"
+              />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Weight (kg)</Text>
-              <TextInput style={styles.input} value={weightKg} onChangeText={setWeightKg} keyboardType="numeric" />
+              <Text style={styles.label}>Weight (kg) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 70"
+                placeholderTextColor={Colors.text2}
+                value={weightKg}
+                onChangeText={(val) => { setErrorMsg(null); setWeightKg(val); }}
+                keyboardType="numeric"
+              />
             </View>
           </View>
         )}

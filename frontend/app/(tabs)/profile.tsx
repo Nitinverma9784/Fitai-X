@@ -50,8 +50,12 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       async function loadProfileData() {
+        const s = sessionService.get();
+        if (s) {
+          setUser(prev => prev || ({ name: s.name, email: s.email, avatar: s.avatar } as any));
+        }
         const data = await groqService.getUserStats();
-        if (data) {
+        if (data && data.user) {
           setStatsData(data);
           setUser(data.user);
         } else {
@@ -68,8 +72,13 @@ export default function ProfileScreen() {
     router.replace('/auth');
   };
 
+  const session = sessionService.get();
   const isAvatarUrl = user?.avatar && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'));
-  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'FitAI Member');
+  const rawName = user?.name || session?.name;
+  const displayEmail = user?.email || session?.email || '';
+  const displayName = (rawName && rawName !== 'FitAI Member' && rawName !== 'Athlete')
+    ? rawName
+    : (displayEmail ? displayEmail.split('@')[0] : (rawName || 'Athlete'));
   const level = statsData?.levelData?.level ?? user?.level ?? 1;
   const levelTitle = statsData?.levelData?.levelTitle ?? user?.levelTitle ?? 'Novice Trainee';
   const currentXp = statsData?.levelData?.xp ?? user?.xp ?? 0;

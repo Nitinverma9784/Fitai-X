@@ -101,6 +101,16 @@ export default function SplashScreen() {
 
           const isUserOnboarded = isDbOnboarded || isLocalOnboarded;
 
+          if (u && localSession) {
+            sessionService.save({
+              ...localSession,
+              name: u.name || localSession.name,
+              email: u.email || localSession.email,
+              avatar: u.avatar || localSession.avatar,
+              isOnboarded: isUserOnboarded,
+            });
+          }
+
           // Keep local storage & DB in sync so user isn't re-prompted
           if (isUserOnboarded) {
             if (localSession && !localSession.isOnboarded) {

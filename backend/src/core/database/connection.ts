@@ -44,6 +44,17 @@ export async function initDb(): Promise<void> {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT DEFAULT 1;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'male';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS age INT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS weight_kg NUMERIC(5,2);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS height_cm NUMERIC(5,2);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS body_fat_pct NUMERIC(4,2);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS equipment VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS time_commitment VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_level VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS diet_pref VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS diet_preference VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_calories_target INT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS protein_target_g INT;
       ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS workouts (
