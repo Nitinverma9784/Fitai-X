@@ -1,1 +1,0 @@
-Exercise {{exercise_name}} was removed due to {{reason}}.

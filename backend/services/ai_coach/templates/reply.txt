@@ -1,1 +1,0 @@
-Hi {{user_name}}, here is your customized fitness advice from FitAI Pro Coach!
