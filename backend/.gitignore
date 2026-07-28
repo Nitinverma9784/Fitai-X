@@ -1,0 +1,159 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+
+# =========================
+# Build Output
+# =========================
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Runtime Files
+# =========================
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# Cache
+# =========================
+.cache/
+.tmp/
+temp/
+.tmp/
+
+# =========================
+# Uploads
+# =========================
+uploads/
+storage/
+public/uploads/
+
+# =========================
+# Database
+# =========================
+*.sqlite
+*.sqlite3
+*.db
+
+# =========================
+# Testing
+# =========================
+coverage/
+.junit.xml
+
+# =========================
+# Docker
+# =========================
+.docker/
+docker-compose.override.yml
+
+# =========================
+# VS Code
+# =========================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# =========================
+# JetBrains IDEs
+# =========================
+.idea/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Package Managers
+# =========================
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# =========================
+# ESLint Cache
+# =========================
+.eslintcache
+
+# =========================
+# Prettier Cache
+# =========================
+.prettier-cache
+
+# =========================
+# TurboRepo
+# =========================
+.turbo/
+
+# =========================
+# Next.js (if present)
+# =========================
+.next/
+
+# =========================
+# Vercel
+# =========================
+.vercel/
+
+# =========================
+# Parcel
+# =========================
+.parcel-cache/
+
+# =========================
+# Misc
+# =========================
+*.tgz
+*.swp
+*.swo
+*.bak
+
+# =========================
+# Secrets
+# =========================
+*.pem
+*.key
+*.crt
+*.p12
+
+# =========================
+# Generated Documentation
+# =========================
+docs/build/

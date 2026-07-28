@@ -2,10 +2,10 @@
   "name": "fitai-backend-ts",
   "version": "1.0.0",
   "description": "FitAI Pro Express TypeScript Backend with PostgreSQL & Groq API Key Rotation",
-  "main": "server.ts",
+  "main": "src/server.ts",
   "scripts": {
-    "start": "tsx server.ts",
-    "dev": "tsx watch server.ts",
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc"
   },
   "dependencies": {
