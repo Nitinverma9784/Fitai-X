@@ -3,7 +3,8 @@ import { envConfig } from '../../config/env';
 
 export const pool = new Pool({
   connectionString: envConfig.dbUrl,
-  connectionTimeoutMillis: 3000,
+  connectionTimeoutMillis: 5000,
+  ssl: (envConfig.dbUrl.includes('render.com') || envConfig.dbUrl.includes('dpg-')) ? { rejectUnauthorized: false } : undefined,
 });
 
 let postgresActive = false;
