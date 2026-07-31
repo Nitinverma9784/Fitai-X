@@ -132,6 +132,19 @@ export async function initDb(): Promise<void> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS workout_commits (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        version_id VARCHAR(50) NOT NULL,
+        parent_version_id VARCHAR(50),
+        author VARCHAR(100) NOT NULL,
+        commit_message TEXT NOT NULL,
+        ai_reasoning TEXT,
+        exercises JSONB NOT NULL,
+        diff_summary JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS meal_logs (
         id SERIAL PRIMARY KEY,
         user_id INT REFERENCES users(id) ON DELETE CASCADE,

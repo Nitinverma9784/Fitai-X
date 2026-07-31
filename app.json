@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6aa6b3bc-6fb2-4853-b98c-fb28c3c625c6"
+      }
+    },
+    "android": {
+      "package": "com.nitinverma9401.fitaixmonorepo"
+    }
+  }
+}

@@ -161,10 +161,19 @@ export class WorkoutRepository {
   async getWorkoutHistory(userId: number = 1, limit: number = 20): Promise<any[]> {
     if (isPostgresConnected()) {
       const wRes = await pool.query(
-        'SELECT w.*, array_agg(row_to_json(e)) FILTER (WHERE e.id IS NOT NULL) as exercises FROM workouts w LEFT JOIN exercises e ON e.workout_id = w.id WHERE w.user_id = $1 GROUP BY w.id ORDER BY w.id DESC LIMIT $2',
+        `SELECT w.*, COALESCE(array_agg(row_to_json(e) ORDER BY e.id ASC) FILTER (WHERE e.id IS NOT NULL), '[]'::json) as exercises
+         FROM workouts w
+         LEFT JOIN exercises e ON e.workout_id = w.id
+         WHERE w.user_id = $1
+         GROUP BY w.id
+         ORDER BY w.id DESC
+         LIMIT $2`,
         [userId, limit]
       );
-      return wRes.rows;
+      return wRes.rows.map(w => ({
+        ...w,
+        exercises: typeof w.exercises === 'string' ? JSON.parse(w.exercises) : (w.exercises || []),
+      }));
     }
     return memoryDb.workouts
       .filter(w => w.user_id === userId)
@@ -173,29 +182,31 @@ export class WorkoutRepository {
   }
 
   async updateExerciseSets(exerciseId: number | string, completedSets: number): Promise<any> {
-    const id = typeof exerciseId === 'number' ? exerciseId : (parseInt(String(exerciseId), 10) || 1);
+    const numericId = typeof exerciseId === 'number' ? exerciseId : parseInt(String(exerciseId), 10);
+    if (isNaN(numericId) || numericId <= 0) return null;
     if (isPostgresConnected()) {
       const res = await pool.query(
         `UPDATE exercises SET completed_sets = $1 WHERE id = $2 RETURNING *`,
-        [completedSets, id]
+        [completedSets, numericId]
       );
       return res.rows[0] || null;
     }
-    const ex = memoryDb.exercises.find(e => e.id === id);
+    const ex = memoryDb.exercises.find(e => e.id === numericId);
     if (ex) ex.completed_sets = completedSets;
     return ex || null;
   }
 
   async toggleExerciseCompletion(exerciseId: number | string, isCompleted: boolean): Promise<any> {
-    const id = typeof exerciseId === 'number' ? exerciseId : (parseInt(String(exerciseId), 10) || 1);
+    const numericId = typeof exerciseId === 'number' ? exerciseId : parseInt(String(exerciseId), 10);
+    if (isNaN(numericId) || numericId <= 0) return null;
     if (isPostgresConnected()) {
       const res = await pool.query(
         `UPDATE exercises SET is_completed = $1, completed_sets = CASE WHEN $1 THEN sets ELSE 0 END WHERE id = $2 RETURNING *`,
-        [isCompleted, id]
+        [isCompleted, numericId]
       );
       return res.rows[0] || null;
     }
-    const ex = memoryDb.exercises.find(e => e.id === id);
+    const ex = memoryDb.exercises.find(e => e.id === numericId);
     if (ex) { ex.is_completed = isCompleted; ex.completed_sets = isCompleted ? ex.sets : 0; }
     return ex || null;
   }
@@ -242,11 +253,18 @@ export class WorkoutRepository {
          WHERE id = $1 RETURNING *`,
         [workoutId, feedback.energy, feedback.soreness, feedback.mood, feedback.notes || '']
       );
-      completedWorkout = res.rows[0] || null;
+      if (res.rows.length > 0) {
+        const w = res.rows[0];
+        const eRes = await pool.query('SELECT * FROM exercises WHERE workout_id = $1 ORDER BY id ASC', [w.id]);
+        completedWorkout = { ...w, exercises: eRes.rows };
+      }
     } else {
       const w = memoryDb.workouts.find(w => w.id === workoutId);
-      if (w) { Object.assign(w, { status: 'completed', completed_at: new Date(), ...feedback }); }
-      completedWorkout = w || null;
+      if (w) {
+        Object.assign(w, { status: 'completed', completed_at: new Date(), ...feedback });
+        const exercises = memoryDb.exercises.filter(e => e.workout_id === w.id);
+        completedWorkout = { ...w, exercises };
+      }
     }
     return completedWorkout;
   }
