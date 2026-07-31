@@ -161,7 +161,7 @@ export class WorkoutRepository {
   async getWorkoutHistory(userId: number = 1, limit: number = 20): Promise<any[]> {
     if (isPostgresConnected()) {
       const wRes = await pool.query(
-        `SELECT w.*, COALESCE(array_agg(row_to_json(e) ORDER BY e.id ASC) FILTER (WHERE e.id IS NOT NULL), '[]'::json) as exercises
+        `SELECT w.*, COALESCE(json_agg(e ORDER BY e.id ASC) FILTER (WHERE e.id IS NOT NULL), '[]'::json) as exercises
          FROM workouts w
          LEFT JOIN exercises e ON e.workout_id = w.id
          WHERE w.user_id = $1
@@ -215,7 +215,10 @@ export class WorkoutRepository {
     const today = getLocalDateString();
     if (isPostgresConnected()) {
       const wRes = await pool.query(
-        `SELECT * FROM workouts WHERE user_id = $1 AND session_date = $2 ORDER BY id DESC LIMIT 1`,
+        `SELECT * FROM workouts 
+         WHERE user_id = $1 
+           AND (session_date = $2 OR created_at >= NOW() - INTERVAL '24 hours')
+         ORDER BY id DESC LIMIT 1`,
         [userId, today]
       );
       if (wRes.rows.length === 0) return null;
@@ -223,7 +226,8 @@ export class WorkoutRepository {
       const eRes = await pool.query('SELECT * FROM exercises WHERE workout_id = $1 ORDER BY id ASC', [workout.id]);
       return { ...workout, exercises: eRes.rows };
     }
-    const workout = memoryDb.workouts.find(w => w.user_id === userId && w.session_date === today);
+    const now = new Date().getTime();
+    const workout = memoryDb.workouts.find(w => w.user_id === userId && (w.session_date === today || (now - new Date(w.created_at).getTime()) < 86400000));
     if (!workout) return null;
     const exercises = memoryDb.exercises.filter(e => e.workout_id === workout.id);
     return { ...workout, exercises };
@@ -233,12 +237,19 @@ export class WorkoutRepository {
     const today = getLocalDateString();
     if (isPostgresConnected()) {
       await pool.query(
-        `UPDATE workouts SET status = 'missed' WHERE user_id = $1 AND session_date < $2 AND status = 'pending'`,
+        `UPDATE workouts SET status = 'missed' 
+         WHERE user_id = $1 
+           AND session_date < $2 
+           AND created_at < NOW() - INTERVAL '24 hours'
+           AND status = 'pending'`,
         [userId, today]
       );
     } else {
+      const now = new Date().getTime();
       memoryDb.workouts.forEach(w => {
-        if (w.user_id === userId && w.session_date < today && w.status === 'pending') w.status = 'missed';
+        if (w.user_id === userId && w.session_date < today && (now - new Date(w.created_at).getTime()) > 86400000 && w.status === 'pending') {
+          w.status = 'missed';
+        }
       });
     }
   }

@@ -4,28 +4,17 @@ import { googleConfig } from '../../../config/google';
 export function getRedirectUri(req: Request): string {
   const hostHeader = req.get('host') || 'localhost:5000';
   const hostname = hostHeader.split(':')[0];
-  const rawPort = hostHeader.split(':')[1];
-  const port = rawPort ? `:${rawPort}` : '';
 
-  if (hostname.includes('onrender.com')) {
-    return `https://${hostname}/api/auth/google/callback`;
+  if (hostname.includes('onrender.com') || process.env.NODE_ENV === 'production') {
+    return 'https://fitai-x.onrender.com/api/auth/google/callback';
   }
-
-  const isHttps = req.headers['x-forwarded-proto'] === 'https' || req.protocol === 'https';
-  const protocol = isHttps ? 'https' : (req.protocol || 'http');
 
   const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
-  const domain = isIp ? `${hostname}.nip.io` : hostname;
-
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    return `${protocol}://${domain}${port}/api/auth/google/callback`;
+  if (isIp || hostname.includes('nip.io')) {
+    return 'http://192.168.1.37.nip.io:5000/api/auth/google/callback';
   }
 
-  if (googleConfig.redirectUri && !googleConfig.redirectUri.includes('192.168.')) {
-    return googleConfig.redirectUri;
-  }
-
-  return `${protocol}://${domain}${port}/api/auth/google/callback`;
+  return 'http://localhost:5000/api/auth/google/callback';
 }
 
 export function authResponse(user: any, token: string) {

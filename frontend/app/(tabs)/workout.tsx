@@ -858,12 +858,28 @@ export default function WorkoutScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TouchableOpacity
+              style={[s.iconBtn, { width: 'auto', paddingHorizontal: 10, flexDirection: 'row', gap: 4, backgroundColor: Colors.gold }]}
+              onPress={handleGenerate}
+              disabled={generating}
+              activeOpacity={0.8}>
+              {generating ? (
+                <ActivityIndicator size="small" color="#0A0A0A" />
+              ) : (
+                <>
+                  <Feather name="zap" size={14} color="#0A0A0A" />
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#0A0A0A' }}>Generate AI Plan</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={[s.iconBtn, { width: 'auto', paddingHorizontal: 10, flexDirection: 'row', gap: 4 }]}
               onPress={() => setShowCustomModal(true)}
               activeOpacity={0.8}>
               <Ionicons name="create-outline" size={16} color={Colors.gold} />
               <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.gold }}>Custom Plan</Text>
             </TouchableOpacity>
+
             <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/version-control')} activeOpacity={0.8}>
               <Feather name="git-branch" size={18} color={Colors.gold} />
             </TouchableOpacity>
@@ -1015,21 +1031,38 @@ export default function WorkoutScreen() {
               />
             ))}
 
-            {/* Finish button */}
+            {/* Finish and Re-Generate buttons */}
             {scenario === 'HAS_WORKOUT_TODAY' && (
-              <TouchableOpacity
-                style={[s.primaryBtn, { marginTop: 8, opacity: completing ? 0.6 : 1 }]}
-                onPress={() => setShowFeedback(true)}
-                disabled={completing}
-                activeOpacity={0.85}>
-                {completing
-                  ? <ActivityIndicator size="small" color="#0A0A0A" />
-                  : <Text style={s.primaryBtnText}>
-                    {completedExercises === totalExercises && totalExercises > 0
-                      ? '✓ Finish Workout'
-                      : `Finish Session (${completedExercises}/${totalExercises} done)`}
-                  </Text>}
-              </TouchableOpacity>
+              <View style={{ gap: 10, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[s.primaryBtn, { opacity: completing ? 0.6 : 1 }]}
+                  onPress={() => setShowFeedback(true)}
+                  disabled={completing}
+                  activeOpacity={0.85}>
+                  {completing
+                    ? <ActivityIndicator size="small" color="#0A0A0A" />
+                    : <Text style={s.primaryBtnText}>
+                      {completedExercises === totalExercises && totalExercises > 0
+                        ? '✓ Finish Workout'
+                        : `Finish Session (${completedExercises}/${totalExercises} done)`}
+                    </Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[s.primaryBtn, { backgroundColor: Colors.card2, borderWidth: 1, borderColor: 'rgba(245,196,0,0.35)' }]}
+                  onPress={handleGenerate}
+                  disabled={generating}
+                  activeOpacity={0.85}>
+                  {generating ? (
+                    <ActivityIndicator size="small" color={Colors.gold} />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Feather name="refresh-cw" size={14} color={Colors.gold} />
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.gold }}>Re-Generate AI Workout Plan</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Completed summary */}
