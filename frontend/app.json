@@ -4,7 +4,7 @@
     "slug": "fitai-x",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "scheme": "fitaix",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -16,35 +16,28 @@
       "package": "com.fitaix.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#0A0A0A",
-          "dark": {
-            "backgroundColor": "#0A0A0A"
-          }
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7d9cc631-ec3d-4e35-95e9-ba61500eca4a"
+      }
+    },
+    "owner": "nitinverma9401"
   }
 }

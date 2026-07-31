@@ -86,7 +86,7 @@ export function QuickAccessCards() {
         <View style={s.bodyRow}>
           <View style={{ flex: 1 }}>
             <Text style={s.statBig}>+18%</Text>
-            <Text style={s.statDesc}>Volume &amp; intensity up vs last week</Text>
+            <Text style={s.statDesc}>Consistency &amp; activity performance analytics</Text>
           </View>
         </View>
 

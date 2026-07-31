@@ -13,11 +13,13 @@ import { legacySetComplete } from '../controllers/legacySetComplete.controller';
 import { logExercise } from '../controllers/logExercise.controller';
 import { getExerciseLogs } from '../controllers/getExerciseLogs.controller';
 import { mediaProxy } from '../controllers/mediaProxy.controller';
+import { getAnalytics } from '../controllers/getAnalytics.controller';
 import { authenticateToken } from '../../../core/middleware/auth.middleware';
 
 const router = Router();
 
 router.get('/today', authenticateToken, getTodayState);
+router.get('/analytics', authenticateToken, getAnalytics);
 router.post('/generate', authenticateToken, generateWorkout);
 router.post('/:id/complete', authenticateToken, completeWorkout);
 router.post('/:id/miss', authenticateToken, missWorkout);

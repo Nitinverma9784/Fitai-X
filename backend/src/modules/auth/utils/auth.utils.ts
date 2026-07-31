@@ -2,9 +2,6 @@ import { Request } from 'express';
 import { googleConfig } from '../../../config/google';
 
 export function getRedirectUri(req: Request): string {
-  if (googleConfig.redirectUri) {
-    return googleConfig.redirectUri;
-  }
   const hostHeader = req.get('host') || 'localhost:5000';
   const hostname = hostHeader.split(':')[0];
   const port = hostHeader.split(':')[1] || '5000';
@@ -12,6 +9,14 @@ export function getRedirectUri(req: Request): string {
 
   const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
   const domain = isIp ? `${hostname}.nip.io` : hostname;
+
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `${protocol}://${domain}:${port}/api/auth/google/callback`;
+  }
+
+  if (googleConfig.redirectUri && !googleConfig.redirectUri.includes('192.168.')) {
+    return googleConfig.redirectUri;
+  }
 
   return `${protocol}://${domain}:${port}/api/auth/google/callback`;
 }
@@ -44,14 +49,20 @@ export function deriveDisplayName(name?: string, email?: string): string {
 }
 
 export function buildFrontendRedirectUrl(baseFrontendUrl: string, targetPath: string, params: Record<string, string>): string {
-  const isWeb = baseFrontendUrl.startsWith('http://localhost') || baseFrontendUrl.startsWith('http://127.0.0.1');
-  
+  const isWeb = baseFrontendUrl.startsWith('http://') || baseFrontendUrl.startsWith('https://');
+
   if (isWeb) {
-    const url = new URL(targetPath, baseFrontendUrl.endsWith('/') ? baseFrontendUrl : baseFrontendUrl + '/');
+    let url: URL;
+    try {
+      url = new URL(baseFrontendUrl);
+    } catch {
+      url = new URL('http://localhost:8081/auth/success');
+    }
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     return url.toString();
   }
 
   const query = new URLSearchParams(params).toString();
-  return `${baseFrontendUrl}?${query}`;
+  const joinChar = baseFrontendUrl.includes('?') ? '&' : '?';
+  return `${baseFrontendUrl}${joinChar}${query}`;
 }

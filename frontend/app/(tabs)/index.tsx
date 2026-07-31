@@ -430,22 +430,7 @@ export default function DashboardScreen() {
           <Text style={styles.versionShortcutArrow}>➔</Text>
         </TouchableOpacity>
 
-        {/* Dashboard Performance Calendar */}
-        <View style={{ marginTop: 14, marginBottom: 20 }}>
-          <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Performance Calendar</Text>
-          <CalendarComponent
-            loggedDates={loggedDatesSet}
-            onSelectDate={handleSelectDate}
-            selectedDate={selectedDate}
-          />
-        </View>
       </ScrollView>
-
-      <DailySummaryModal
-        visible={summaryModalVisible}
-        data={summaryData}
-        onClose={() => setSummaryModalVisible(false)}
-      />
 
       <WelcomeBackModal
         visible={welcomeModalVisible}

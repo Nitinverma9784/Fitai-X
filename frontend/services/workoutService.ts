@@ -98,6 +98,14 @@ export const workoutService = {
     } catch { return null; }
   },
 
+  async getAnalytics(): Promise<any | null> {
+    try {
+      const res = await fetch(`${BASE}/workout/analytics`, { headers: headers() });
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch { return null; }
+  },
+
   async getExerciseCatalog(): Promise<any[]> {
     try {
       const res = await fetch(`${BASE}/workout/catalog`, { headers: headers() });

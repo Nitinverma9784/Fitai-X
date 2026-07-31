@@ -5,13 +5,11 @@ import { Platform } from 'react-native';
  * Resolves the backend root URL (e.g., http://10.0.2.2:5000 or http://localhost:5000 or http://192.168.x.x:5000)
  */
 export function getBackendBaseUrl(): string {
-  // 1. Explicit environment variable override
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
-  }
-
-  // 2. Web browser environment
+  // Web browser environment
   if (Platform.OS === 'web') {
+    if (process.env.EXPO_PUBLIC_API_URL && !process.env.EXPO_PUBLIC_API_URL.includes('localhost')) {
+      return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
+    }
     return 'http://localhost:5000';
   }
 
@@ -23,12 +21,18 @@ export function getBackendBaseUrl(): string {
     return 'http://10.0.2.2:5000';
   }
 
-  const hostUri = Constants.expoConfig?.hostUri;
+  // Extract host IP when running on Expo Go or physical device connected over local Wi-Fi
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const devMachineIp = hostUri.split(':')[0];
     if (devMachineIp && devMachineIp !== 'localhost' && devMachineIp !== '127.0.0.1') {
       return `http://${devMachineIp}:5000`;
     }
+  }
+
+  // 1. Explicit environment variable override
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
   }
 
   return isAndroid ? 'http://10.0.2.2:5000' : 'http://localhost:5000';

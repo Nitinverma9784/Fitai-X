@@ -97,7 +97,9 @@ export default function AuthScreen() {
     setErrorMsg(null);
     setLoading(true);
     try {
-      const redirectUrl = Linking.createURL('/auth/success');
+      const redirectUrl = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/success`
+        : Linking.createURL('/auth/success');
       const returnUrl = encodeURIComponent(redirectUrl);
       const res = await fetch(`${BACKEND_URL}/api/auth/google/url?returnUrl=${returnUrl}`);
       const json = await res.json();
