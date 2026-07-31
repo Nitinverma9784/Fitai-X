@@ -15,6 +15,7 @@ import userRoutes from './modules/user/routes/user.routes';
 import nutritionRoutes from './modules/nutrition/routes/nutrition.routes';
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors(corsConfig));
 app.use(express.json());
 
